@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ArrowRight, CheckCircle2, FileText, ImageIcon, Loader2, RotateCcw, UploadCloud, X } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, ClipboardCheck, FileText, ImageIcon, Loader2, RotateCcw, ScanText, ShieldCheck, Sparkles, UploadCloud, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -108,7 +108,7 @@ function UploadRow({ item, onRemove, autoOpen }: { item: Item; onRemove: () => v
                 <p className="mt-2 text-xs text-muted-foreground">This exact file was uploaded before — showing the existing record.</p>
               )}
               {doc.status !== "confirmed" && (
-                <div className="mt-4 rounded-lg border bg-background/60 p-4">
+                <div className="neu-inset mt-4 p-4">
                   <ProcessingStory doc={doc} compact />
                 </div>
               )}
@@ -186,16 +186,16 @@ export default function UploadPage() {
           setDrag(false);
           if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
         }}
-        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
-          drag ? "border-brand-600 bg-brand-50" : "border-border bg-card"
+        className={`neu-inset flex flex-col items-center justify-center rounded-3xl! border-2 border-dashed px-6 py-14 text-center transition-colors ${
+          drag ? "border-brand-600 bg-brand-50/60" : "border-brand-600/15"
         }`}
       >
-        <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-          <UploadCloud className="size-6" />
+        <div className="neu-sm mb-4 flex size-16 items-center justify-center rounded-full! text-brand-600">
+          <UploadCloud className="size-7" />
         </div>
         <p className="text-sm font-medium">{t("upload.drop")}</p>
         <p className="my-2 text-xs text-muted-foreground">{t("upload.or")}</p>
-        <Button onClick={() => inputRef.current?.click()}>{t("upload.browse")}</Button>
+        <Button size="lg" className="rounded-full px-6" onClick={() => inputRef.current?.click()}>{t("upload.browse")}</Button>
         <input
           ref={inputRef}
           type="file"
@@ -226,15 +226,28 @@ export default function UploadPage() {
           </ul>
         </section>
       )}
-      <div className="mt-8 rounded-xl border bg-card p-4 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">How processing works</p>
-        <ol className="mt-2 list-decimal space-y-1 pl-5">
-          <li>Your file is validated and stored in private storage.</li>
-          <li>Digital PDFs are read directly; scans and photos go through OCR.</li>
-          <li>AI extracts values exactly as written; software checks each against the source text.</li>
-          <li>You review, correct and confirm before anything is added to your record.</li>
+      <section className="mt-10">
+        <h2 className="mb-4 px-1 text-base font-semibold tracking-tight">How it works</h2>
+        <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { icon: ShieldCheck, title: "Stored privately", body: "Your file is checked and saved in private storage only you can access." },
+            { icon: ScanText, title: "Text is read", body: "Digital PDFs are read directly. Scans and photos go through OCR." },
+            { icon: Sparkles, title: "Values extracted", body: "AI copies values exactly as written, then software checks each against the source." },
+            { icon: ClipboardCheck, title: "You confirm", body: "Nothing joins your record until you review and confirm it." },
+          ].map(({ icon: Icon, title, body }, i) => (
+            <li key={title} className="surface p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="neu-inset flex size-11 items-center justify-center rounded-xl! text-brand-600">
+                  <Icon className="size-5" />
+                </span>
+                <span className="text-xs font-semibold text-muted-foreground/70 tabular-nums">0{i + 1}</span>
+              </div>
+              <p className="text-sm font-semibold">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{body}</p>
+            </li>
+          ))}
         </ol>
-      </div>
+      </section>
       <Disclaimer className="mt-4" />
     </>
   );

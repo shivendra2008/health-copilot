@@ -42,7 +42,7 @@ function Sources({ cites }: { cites: Citation[] }) {
             <li key={c.ref}>
               <Link
                 href={c.document_id ? `/records/${c.document_id}` : "#"}
-                className="flex items-start gap-2 rounded-lg border bg-card px-2.5 py-2 text-xs transition-colors hover:border-brand-600/40 hover:bg-brand-50/50"
+                className="flex items-start gap-2 field px-2.5 py-2 text-xs transition-colors hover:border-brand-600/40 hover:bg-brand-50/50"
               >
                 <span className="mt-px flex size-6 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600">
                   <Icon className="size-3.5" />
@@ -172,7 +172,7 @@ function AssistantContent() {
               <li key={c.id} className="group flex items-center">
                 <button
                   onClick={() => open(c.id)}
-                  className={cn("min-w-0 flex-1 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted", convId === c.id && "bg-brand-50 text-brand-700")}
+                  className={cn("min-w-0 flex-1 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-white/50", convId === c.id && "neu-inset rounded-xl! text-brand-700")}
                 >
                   <span className="block truncate">{c.title}</span>
                   <span className="block text-xs text-muted-foreground">{relativeTime(c.updated_at)}</span>
@@ -187,7 +187,7 @@ function AssistantContent() {
         </aside>
 
         <section className="surface flex min-h-[70vh] flex-col">
-          <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 border-b border-white/60 px-5 py-2.5 text-xs text-muted-foreground">
             <ShieldCheck className="size-3.5 text-ok" />
             {t("assistant.grounded")}. It cites every answer, says when your records don&apos;t contain it, and never diagnoses.
           </div>
@@ -203,7 +203,7 @@ function AssistantContent() {
                 </p>
                 <div className="mt-5 grid w-full gap-2 sm:grid-cols-2">
                   {SUGGESTIONS.map((s) => (
-                    <button key={s} onClick={() => send(s)} className="rounded-lg border bg-background p-3 text-left text-sm hover:bg-muted">{s}</button>
+                    <button key={s} onClick={() => send(s)} className="neu-sm neu-press rounded-2xl! p-3.5 text-left text-sm">{s}</button>
                   ))}
                 </div>
               </div>
@@ -213,7 +213,7 @@ function AssistantContent() {
                   <div
                     className={cn(
                       "max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed sm:max-w-[75%]",
-                      m.role === "user" ? "rounded-br-sm bg-brand-600 text-white" : "rounded-bl-sm border bg-background",
+                      m.role === "user" ? "rounded-br-md bg-brand-600 text-white shadow-[4px_4px_12px_rgba(29,107,80,0.25)]" : "neu-sm rounded-bl-md! rounded-2xl",
                     )}
                   >
                     {m.role === "assistant" && m.insufficient_information && (
@@ -229,7 +229,7 @@ function AssistantContent() {
             )}
             {sending && (
               <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm border bg-background px-4 py-3 text-sm text-muted-foreground">
+                <div className="neu-sm flex items-center gap-2 rounded-2xl! px-4 py-3 text-sm text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" /> Searching your records…
                 </div>
               </div>
@@ -237,7 +237,7 @@ function AssistantContent() {
             <div ref={endRef} />
           </div>
           <form
-            className="border-t p-3"
+            className="border-t border-white/60 p-4"
             onSubmit={(e) => {
               e.preventDefault();
               send(input);
@@ -250,7 +250,7 @@ function AssistantContent() {
                     key={q}
                     type="button"
                     onClick={() => send(q)}
-                    className="shrink-0 rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground hover:border-brand-600/40 hover:text-foreground"
+                    className="neu-sm neu-press shrink-0 rounded-full! px-3.5 py-1.5 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {q}
                   </button>
@@ -271,7 +271,7 @@ function AssistantContent() {
                 aria-label="Message"
                 maxLength={1000}
                 rows={1}
-                className="max-h-40 min-h-10 resize-none bg-background"
+                className="max-h-40 min-h-11 resize-none"
               />
               <Button type="submit" size="icon-lg" disabled={!input.trim() || sending} aria-label={t("assistant.send")}>
                 {sending ? <Loader2 className="animate-spin" /> : <Send />}

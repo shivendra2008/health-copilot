@@ -9,7 +9,8 @@ import useSWR from "swr";
 import { CorrectedBadge, InterpBadge } from "@/components/app/badges";
 import { RangeBar } from "@/components/app/range-bar";
 import { Segmented } from "@/components/app/segmented";
-import { Sparkline } from "@/components/app/sparkline";
+import { StatusPill } from "@/components/app/comparison";
+import { AreaSpark } from "@/components/app/area-spark";
 import { Disclaimer, EmptyState, ErrorState, ListSkeleton, PageHeader, Pager } from "@/components/app/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -221,7 +222,7 @@ function AllResults() {
         <select aria-label="Range status" value={interp} onChange={(e) => {
             setInterp(e.target.value);
             setOffset(0);
-          }} className="h-10 rounded-lg border bg-card px-3 text-sm">
+          }} className="h-10 field px-3 text-sm">
           <option value="">All statuses</option>
           <option value="out_of_range">Outside printed range</option>
           <option value="within_range">{t("interp.within_range")}</option>
@@ -278,11 +279,12 @@ function AllResults() {
 
 function TestTile({ test, onOpen }: { test: TrendTest; onOpen: () => void }) {
   const l = test.latest;
+  const out = l.interpretation === "above_range" || l.interpretation === "below_range";
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="surface flex flex-col gap-3 p-4 text-left transition-[border-color,box-shadow] hover:border-brand-600/40 hover:shadow-[0_4px_12px_rgba(16,24,20,0.06)] focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="surface neu-press flex flex-col p-5 text-left focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -291,19 +293,22 @@ function TestTile({ test, onOpen }: { test: TrendTest; onOpen: () => void }) {
           </p>
           {test.category && <p className="truncate text-[11px] text-muted-foreground">{test.category}</p>}
         </div>
-        <InterpBadge value={l.interpretation} compact />
+        <StatusPill status={l.interpretation} />
       </div>
-      <div className="flex items-end justify-between gap-2">
-        <p className="leading-none">
-          <span className="text-2xl font-semibold tabular-nums">{l.value_text}</span>
-          {l.unit && <span className="ml-1 text-xs text-muted-foreground">{l.unit}</span>}
-        </p>
-        <Sparkline points={test.spark} />
+      <p className="mt-3 leading-none">
+        <span className={cn("text-[28px] font-semibold tabular-nums", out && "text-warn")}>{l.value_text}</span>
+        {l.unit && <span className="ml-1.5 text-xs text-muted-foreground">{l.unit}</span>}
+      </p>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        Expected {l.reference_range_text ?? "—"} · {formatDate(l.effective_date)}
+      </p>
+      <div className="mt-3">
+        <AreaSpark points={test.spark} height={48} />
       </div>
-      <RangeBar value={l.value_num} low={l.ref_low} high={l.ref_high} status={l.interpretation} unit={l.unit} />
-      <p className="text-[11px] text-muted-foreground">
-        {formatDate(l.effective_date)} · {test.count} result{test.count === 1 ? "" : "s"}
-        {test.units.length > 1 && ` · ${test.units.length} units`}
+      <RangeBar className="mt-3" value={l.value_num} low={l.ref_low} high={l.ref_high} status={l.interpretation} unit={l.unit} showLabels={false} />
+      <p className="mt-3 text-[11px] text-muted-foreground">
+        {test.count} result{test.count === 1 ? "" : "s"}
+        {test.units.length > 1 && ` · ${test.units.length} units, shown separately`} · View trend →
       </p>
     </button>
   );
@@ -387,8 +392,8 @@ function LabResultsContent() {
                         aria-pressed={category === c}
                         onClick={() => setCategory(c)}
                         className={cn(
-                          "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
-                          category === c ? "border-brand-600 bg-brand-50 text-brand-700" : "bg-card text-muted-foreground hover:text-foreground",
+                          "h-8 rounded-full px-3.5 text-xs font-medium transition-colors",
+                          category === c ? "neu-inset rounded-full! text-brand-700" : "neu-sm neu-press rounded-full! text-muted-foreground hover:text-foreground",
                         )}
                       >
                         {c === "all" ? "All panels" : c}

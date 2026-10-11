@@ -98,8 +98,31 @@
 }
 
 @layer components {
+  /* Default card across the app: soft raised panel on the sage background. */
   .surface {
-    @apply rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(16,24,20,0.04)];
+    background: var(--neu-surface);
+    border-radius: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    box-shadow:
+      7px 7px 18px var(--neu-shadow),
+      -7px -7px 18px var(--neu-highlight);
+  }
+  /* Inset form control (inputs, selects). */
+  .field {
+    background: var(--neu-surface);
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    box-shadow:
+      inset 3px 3px 7px var(--neu-shadow),
+      inset -3px -3px 7px var(--neu-highlight);
+  }
+  .field:focus-visible {
+    outline: none;
+    border-color: var(--ring);
+    box-shadow:
+      inset 3px 3px 7px var(--neu-shadow),
+      inset -3px -3px 7px var(--neu-highlight),
+      0 0 0 3px color-mix(in oklab, var(--ring) 22%, transparent);
   }
 
   /* Soft UI: raised and inset surfaces on the sage background. Text stays high-contrast. */

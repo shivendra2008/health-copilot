@@ -10,13 +10,11 @@ import {
   FileText,
   FlaskConical,
   HeartPulse,
-  Hospital,
   Info,
   Loader2,
   Pencil,
   Pill,
   RefreshCw,
-  ScanLine,
   ShieldCheck,
   Sparkles,
   Stethoscope,
@@ -30,6 +28,7 @@ import useSWR from "swr";
 import { CorrectedBadge, StatusBadge } from "@/components/app/badges";
 import { gapText, StatusPill, YoursVsExpected } from "@/components/app/comparison";
 import { DeleteDocumentButton } from "@/components/app/delete-dialog";
+import { DOC_ICON } from "@/components/app/doc-icon";
 import { FailedPanel, ProcessingPanel } from "@/components/app/doc-states";
 import { DocumentViewer } from "@/components/app/document-viewer";
 import { RangeBar } from "@/components/app/range-bar";
@@ -43,16 +42,9 @@ import { useDocumentPoll } from "@/hooks/use-document-poll";
 import { api, errorMessage } from "@/lib/api";
 import { formatDate, formatDateTime, isProcessing } from "@/lib/format";
 import { LANG_LABELS, useI18n } from "@/lib/i18n";
-import type { Derived, DocType, DocumentMeta, Extraction, ExtractionHistoryItem, LabResult, Lang, Summary } from "@/lib/types";
+import type { Derived, DocumentMeta, Extraction, ExtractionHistoryItem, LabResult, Lang, Summary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const DOC_ICON: Record<DocType, React.ComponentType<{ className?: string }>> = {
-  lab_report: FlaskConical,
-  prescription: Pill,
-  diagnostic_report: ScanLine,
-  discharge_summary: Hospital,
-  other: FileText,
-};
 
 const isOut = (s?: string) => s === "above_range" || s === "below_range";
 

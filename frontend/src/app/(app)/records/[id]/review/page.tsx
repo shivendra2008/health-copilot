@@ -324,7 +324,7 @@ export default function ReviewPage() {
                   id="doc_type"
                   value={data.document_type}
                   onChange={(e) => set({ document_type: e.target.value as DocType, classification_confidence: "high" })}
-                  className="h-9 w-full rounded-lg border bg-card px-2 text-sm"
+                  className="h-9 w-full field px-2 text-sm"
                 >
                   {DOC_TYPES.map((d) => (
                     <option key={d} value={d}>
@@ -363,7 +363,7 @@ export default function ReviewPage() {
                   key={s.key}
                   type="button"
                   onClick={() => addItem(s.key)}
-                  className="flex w-full items-center gap-2 rounded-xl border border-dashed bg-card px-4 py-3 text-sm text-muted-foreground hover:text-foreground"
+                  className="neu-sm neu-press flex w-full items-center gap-2 rounded-xl! px-4 py-3 text-sm text-muted-foreground hover:text-foreground"
                 >
                   <Plus className="size-4" /> Add {s.title.toLowerCase()}
                 </button>
@@ -423,7 +423,7 @@ export default function ReviewPage() {
                                     required={f.required}
                                     aria-invalid={(f.required && !val.trim()) || issues.some((i) => i.field === f.name && i.severity === "error")}
                                     onChange={(e) => setItem(s.key, idx, f.name, e.target.value)}
-                                    className={cn("h-8 bg-card", changed && "border-brand-600/60")}
+                                    className={cn("h-8 bg-card shadow-none border-border", changed && "border-brand-600/60")}
                                   />
                                   {changed && (
                                     <p className="truncate text-[11px] text-muted-foreground" title={`Original extraction: ${origVal || "(empty)"}`}>
@@ -500,7 +500,7 @@ export default function ReviewPage() {
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-card/95 backdrop-blur lg:bottom-0 lg:left-[248px]">
+      <div className="fixed inset-x-0 bottom-16 z-20 bg-[var(--neu-surface)]/95 shadow-[0_-6px_18px_rgba(140,158,148,0.25)] backdrop-blur lg:bottom-0 lg:left-[248px]">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
           <p className="text-xs text-muted-foreground" aria-live="polite">
             {dirty

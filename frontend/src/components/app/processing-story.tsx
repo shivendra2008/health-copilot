@@ -55,9 +55,9 @@ export function ProcessingStory({ doc, compact = false }: { doc: DocumentMeta; c
               className={cn(
                 "relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
                 done && "border-brand-600 bg-brand-600 text-white",
-                active && "border-brand-600 bg-card text-brand-600",
+                active && "border-brand-600 bg-[var(--neu-surface)] text-brand-600",
                 err && "border-danger bg-danger text-white",
-                !done && !active && !err && "bg-card text-muted-foreground",
+                !done && !active && !err && "neu-sm rounded-full! border-transparent text-muted-foreground",
               )}
             >
               {done ? <Check className="size-3.5" /> : active ? <Loader2 className="size-3.5 animate-spin" /> : err ? <X className="size-3.5" /> : i + 1}

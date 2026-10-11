@@ -73,10 +73,17 @@ export default function LoginPage() {
 
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      <section className="hidden flex-col justify-between border-r bg-card p-10 lg:flex">
+      <section className="relative isolate hidden flex-col justify-between overflow-hidden p-12 lg:flex">
+        <svg aria-hidden="true" className="pointer-events-none absolute -right-40 -bottom-40 -z-10 size-[560px]" viewBox="0 0 560 560">
+          <circle cx="280" cy="280" r="270" fill="none" stroke="#D3E6DC" strokeWidth="1.5" />
+          <circle cx="280" cy="280" r="200" fill="none" stroke="#D3E6DC" strokeWidth="1.5" />
+          <circle cx="280" cy="280" r="130" fill="#E2EFE8" />
+          <circle cx="280" cy="280" r="70" fill="#D3E9DE" />
+          <circle cx="90" cy="150" r="20" fill="#F8DFAE" />
+        </svg>
         <Logo />
         <div className="max-w-md">
-          <h2 className="text-3xl font-semibold leading-tight tracking-tight">{t("app.tagline")}</h2>
+          <h2 className="text-4xl leading-tight font-semibold tracking-tight">{t("app.tagline")}</h2>
           <ul className="mt-8 space-y-5 text-sm">
             {[
               { icon: FileSearch, title: "Structured from your documents", body: "Lab values, medicines and diagnoses extracted exactly as written — and checked against the source." },
@@ -84,7 +91,7 @@ export default function LoginPage() {
               { icon: ShieldCheck, title: "Private by default", body: "Files live in private storage. Only you can see your records." },
             ].map(({ icon: Icon, title, body }) => (
               <li key={title} className="flex gap-3">
-                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                <span className="neu-sm mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl! text-brand-600">
                   <Icon className="size-4" />
                 </span>
                 <span>
@@ -98,14 +105,14 @@ export default function LoginPage() {
         <Disclaimer />
       </section>
 
-      <section className="flex flex-col px-5 py-8 sm:px-10">
-        <div className="flex items-center justify-between">
+      <section className="relative flex flex-col justify-center px-5 py-8 sm:px-10">
+        <div className="flex items-center justify-between lg:absolute lg:top-8 lg:right-10 lg:left-10">
           <Logo className="lg:invisible" />
           <select
             aria-label="Language"
             value={lang}
             onChange={(e) => setLang(e.target.value as Lang)}
-            className="h-9 rounded-lg border bg-card px-2 text-sm"
+            className="h-9 field px-2 text-sm"
           >
             {(Object.keys(LANG_LABELS) as Lang[]).map((l) => (
               <option key={l} value={l}>
@@ -114,7 +121,7 @@ export default function LoginPage() {
             ))}
           </select>
         </div>
-        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
+        <div className="neu mx-auto my-10 flex w-full max-w-md flex-1 flex-col justify-center p-7 sm:p-10 lg:flex-none">
           <h1 className="text-2xl font-semibold tracking-tight">{mode === "signin" ? t("auth.signin") : t("auth.signup")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === "signin" ? t("auth.noAccount") : t("auth.haveAccount")}{" "}
@@ -134,12 +141,12 @@ export default function LoginPage() {
             {mode === "signup" && (
               <div className="space-y-1.5">
                 <Label htmlFor="name">{t("auth.fullName")}</Label>
-                <Input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className="h-10" />
+                <Input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className="h-11" />
               </div>
             )}
             <div className="space-y-1.5">
               <Label htmlFor="email">{t("auth.email")}</Label>
-              <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10" />
+              <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">{t("auth.password")}</Label>
@@ -151,7 +158,7 @@ export default function LoginPage() {
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-10"
+                className="h-11"
                 aria-describedby={mode === "signup" ? "pw-hint" : undefined}
               />
               {mode === "signup" && (
@@ -170,7 +177,7 @@ export default function LoginPage() {
                 {notice}
               </p>
             )}
-            <Button type="submit" className="h-10 w-full" disabled={busy || !email || !password}>
+            <Button type="submit" className="h-11 w-full rounded-full" disabled={busy || !email || !password}>
               {busy ? <Loader2 className="animate-spin" /> : <Lock />}
               {mode === "signin" ? t("auth.signin") : t("auth.signup")}
             </Button>

@@ -18,7 +18,7 @@ export function Segmented<T extends string>({
   className?: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className={cn("inline-flex rounded-lg bg-muted p-0.5", className)}>
+    <div role="radiogroup" aria-label={label} className={cn("neu-inset inline-flex rounded-xl! p-1", className)}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -30,7 +30,7 @@ export function Segmented<T extends string>({
           className={cn(
             "rounded-md font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
             size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-sm",
-            value === o.value && "bg-card text-foreground shadow-[0_1px_2px_rgba(16,24,20,0.08)]",
+            value === o.value && "bg-card text-brand-700 shadow-[2px_2px_6px_var(--neu-shadow)]",
           )}
         >
           {o.label}

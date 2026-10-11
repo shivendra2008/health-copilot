@@ -53,7 +53,7 @@ export function RangeBar({
 
   return (
     <div className={cn("w-full min-w-[96px]", className)} role="img" aria-label={label}>
-      <div className="relative h-1.5 rounded-full bg-muted">
+      <div className="relative h-1.5 rounded-full bg-[#DCE4DF] shadow-[inset_1px_1px_2px_rgba(140,158,148,0.35)]">
         <div className="absolute inset-y-0 rounded-full bg-ok/25" style={{ left: `${bandStart}%`, width: `${Math.max(bandEnd - bandStart, 1)}%` }} />
         <div
           className={cn(

@@ -118,7 +118,7 @@ export default function SettingsPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="sex">Sex</Label>
-              <select id="sex" value={form.sex ?? ""} onChange={(e) => setForm({ ...form, sex: (e.target.value || null) as Profile["sex"] })} className="h-9 w-full rounded-lg border bg-card px-2 text-sm">
+              <select id="sex" value={form.sex ?? ""} onChange={(e) => setForm({ ...form, sex: (e.target.value || null) as Profile["sex"] })} className="h-9 w-full field px-2 text-sm">
                 <option value="">Prefer not to say</option>
                 <option value="female">Female</option>
                 <option value="male">Male</option>
@@ -128,14 +128,14 @@ export default function SettingsPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="blood">Blood group</Label>
-              <select id="blood" value={form.blood_group ?? ""} onChange={(e) => setForm({ ...form, blood_group: e.target.value || null })} className="h-9 w-full rounded-lg border bg-card px-2 text-sm">
+              <select id="blood" value={form.blood_group ?? ""} onChange={(e) => setForm({ ...form, blood_group: e.target.value || null })} className="h-9 w-full field px-2 text-sm">
                 <option value="">Not set</option>
                 {BLOOD.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="lang">{t("settings.language")}</Label>
-              <select id="lang" value={form.preferred_language ?? "en"} onChange={(e) => setForm({ ...form, preferred_language: e.target.value as Lang })} className="h-9 w-full rounded-lg border bg-card px-2 text-sm">
+              <select id="lang" value={form.preferred_language ?? "en"} onChange={(e) => setForm({ ...form, preferred_language: e.target.value as Lang })} className="h-9 w-full field px-2 text-sm">
                 {(Object.keys(LANG_LABELS) as Lang[]).map((l) => <option key={l} value={l}>{LANG_LABELS[l]}</option>)}
               </select>
               <p className="text-xs text-muted-foreground">Used for the interface, AI summaries and assistant answers.</p>

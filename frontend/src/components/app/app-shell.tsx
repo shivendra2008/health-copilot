@@ -47,11 +47,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-              active && "bg-brand-50 text-brand-700 hover:bg-brand-50 hover:text-brand-700",
+              "flex h-11 items-center gap-3 rounded-xl px-3.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-white/50 hover:text-foreground",
+              active && "neu-inset rounded-xl! font-semibold text-brand-700 hover:bg-transparent hover:text-brand-700",
             )}
           >
-            <Icon className="size-[18px]" />
+            <Icon className={cn("size-[18px]", active && "text-brand-600")} />
             {t(key)}
           </Link>
         );
@@ -74,7 +74,7 @@ function MobileTabBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 bg-[var(--neu-surface)]/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_18px_rgba(140,158,148,0.22)] backdrop-blur lg:hidden"
     >
       {TABS.map(({ href, key, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
@@ -88,7 +88,7 @@ function MobileTabBar() {
               active && "text-brand-700",
             )}
           >
-            <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active && "bg-brand-50")}>
+            <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active && "neu-inset rounded-full!")}>
               <Icon className="size-[19px]" />
             </span>
             <span className="max-w-full truncate px-1">{t(key)}</span>
@@ -104,13 +104,13 @@ function SidebarFooter() {
   const { t, lang, setLang } = useI18n();
   const router = useRouter();
   return (
-    <div className="space-y-3 border-t pt-4">
+    <div className="space-y-3 border-t border-white/60 pt-4">
       <label className="block px-1 text-xs text-muted-foreground">
         <span className="sr-only">Language</span>
         <select
           value={lang}
           onChange={(e) => setLang(e.target.value as Lang)}
-          className="h-9 w-full rounded-lg border bg-card px-2 text-sm text-foreground"
+          className="h-9 w-full field px-2 text-sm text-foreground"
           aria-label="Language"
         >
           {(Object.keys(LANG_LABELS) as Lang[]).map((l) => (
@@ -121,7 +121,7 @@ function SidebarFooter() {
         </select>
       </label>
       <div className="flex items-center gap-2 px-1">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
+        <div className="neu-sm flex size-9 shrink-0 items-center justify-center rounded-full! text-xs font-semibold text-brand-700">
           {(user?.user_metadata?.full_name || user?.email || "?").slice(0, 1).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
@@ -169,11 +169,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[248px_1fr]">
-      <aside className="sticky top-0 hidden h-screen flex-col border-r bg-card px-3 py-5 lg:flex">
+      <aside className="sticky top-0 z-10 hidden h-screen flex-col bg-[var(--neu-surface)] px-4 py-6 shadow-[6px_0_24px_rgba(140,158,148,0.22)] lg:flex">
         <Link href="/overview" className="mb-6 px-2">
           <Logo />
         </Link>
-        <Button asChild className="mb-5 h-10 justify-start gap-2 px-3">
+        <Button asChild className="mb-6 h-11 justify-start gap-2 rounded-full px-4">
           <Link href="/upload">
             <Upload /> {t("common.upload")}
           </Link>
@@ -184,7 +184,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarFooter />
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card/95 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-[var(--neu-surface)]/95 px-4 shadow-[0_6px_16px_rgba(140,158,148,0.2)] backdrop-blur lg:hidden">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Open navigation">

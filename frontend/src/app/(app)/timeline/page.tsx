@@ -76,7 +76,7 @@ export default function TimelinePage() {
         </div>
         <div className="space-y-1">
           <Label htmlFor="etype" className="text-xs">Event</Label>
-          <select id="etype" value={eventType} onChange={(e) => setEventType(e.target.value)} className="h-9 w-full rounded-lg border bg-card px-2 text-sm">
+          <select id="etype" value={eventType} onChange={(e) => setEventType(e.target.value)} className="h-9 w-full field px-2 text-sm">
             <option value="">{t("common.all")}</option>
             {Object.entries(TYPE_LABEL).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
@@ -85,7 +85,7 @@ export default function TimelinePage() {
         </div>
         <div className="space-y-1">
           <Label htmlFor="dtype" className="text-xs">Document type</Label>
-          <select id="dtype" value={docType} onChange={(e) => setDocType(e.target.value)} className="h-9 w-full rounded-lg border bg-card px-2 text-sm">
+          <select id="dtype" value={docType} onChange={(e) => setDocType(e.target.value)} className="h-9 w-full field px-2 text-sm">
             <option value="">{t("common.all")}</option>
             {DOC_TYPES.map((d) => (
               <option key={d} value={d}>{t(`doctype.${d}`)}</option>
@@ -120,18 +120,18 @@ export default function TimelinePage() {
         <div className="space-y-8">
           {Object.entries(groups).map(([month, evs]) => (
             <section key={month}>
-              <h2 className="sticky top-14 z-10 mb-3 bg-background py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase lg:top-0">
+              <h2 className="sticky top-14 z-10 mb-3 bg-[var(--neu-surface)]/90 py-1.5 backdrop-blur text-xs font-semibold tracking-wide text-muted-foreground uppercase lg:top-0">
                 {formatDate(`${month}-01`, { month: "long", year: "numeric" })}
               </h2>
-              <ol className="relative ml-4 space-y-3 border-l pl-6">
+              <ol className="relative ml-4 space-y-3 border-l-2 border-white/80 pl-6">
                 {evs.map((e) => {
                   const Icon = ICONS[e.event_type];
                   return (
                     <li key={e.id} className="relative">
-                      <span className="absolute top-3 -left-[37px] flex size-6 items-center justify-center rounded-full border bg-card text-brand-600">
+                      <span className="neu-sm absolute top-3 -left-[39px] flex size-7 items-center justify-center rounded-full! text-brand-600">
                         <Icon className="size-3.5" />
                       </span>
-                      <div className="surface p-3.5">
+                      <div className="surface p-4">
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                           <p className="text-sm font-medium">{e.title}</p>
                           <time className="text-xs text-muted-foreground" dateTime={e.event_date}>{formatDate(e.event_date)}</time>

@@ -84,9 +84,9 @@ export function SourcePanel({
       {tab === "original" ? (
         <DocumentViewer id={id} className="flex-1 rounded-none border-0 shadow-none" bare />
       ) : (
-        <div className="relative min-h-[420px] flex-1 overflow-y-auto bg-muted/30">
+        <div className="neu-inset relative m-3 min-h-[420px] flex-1 overflow-y-auto rounded-xl!">
           {highlight && (
-            <div className="sticky top-0 z-10 border-b bg-card/95 px-4 py-2 text-xs backdrop-blur">
+            <div className="sticky top-0 z-10 border-b border-white/60 bg-[var(--neu-surface)]/95 px-4 py-2 text-xs backdrop-blur">
               {range ? (
                 <span className="text-foreground">
                   Showing where <span className="font-medium">{highlightLabel ?? "this item"}</span> came from

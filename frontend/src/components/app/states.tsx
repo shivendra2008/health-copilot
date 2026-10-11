@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -33,8 +33,8 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col items-center justify-center rounded-xl border border-dashed bg-card px-6 py-12 text-center", className)}>
-      <div className="mb-3 flex size-11 items-center justify-center rounded-full bg-brand-50 text-brand-600 [&_svg]:size-5">{icon}</div>
+    <div className={cn("neu-inset flex flex-col items-center justify-center rounded-3xl! px-6 py-14 text-center", className)}>
+      <div className="neu-sm mb-4 flex size-14 items-center justify-center rounded-full! text-brand-600 [&_svg]:size-6">{icon}</div>
       <h3 className="text-sm font-semibold">{title}</h3>
       {body && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{body}</p>}
       {action && <div className="mt-4">{action}</div>}
@@ -45,7 +45,7 @@ export function EmptyState({
 export function ErrorState({ error, onRetry, className }: { error: unknown; onRetry?: () => void; className?: string }) {
   const { t } = useI18n();
   return (
-    <div role="alert" className={cn("flex flex-col items-center rounded-xl border border-danger/20 bg-danger-bg/60 px-6 py-8 text-center", className)}>
+    <div role="alert" className={cn("flex flex-col items-center rounded-2xl border border-danger/20 bg-danger-bg/60 px-6 py-8 text-center", className)}>
       <AlertTriangle className="mb-2 size-5 text-danger" />
       <p className="text-sm font-medium text-foreground">Couldn&apos;t load this</p>
       <p className="mt-1 max-w-md text-sm text-muted-foreground">{errorMessage(error)}</p>
@@ -62,7 +62,7 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="space-y-2" aria-busy="true" aria-label="Loading">
       {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} className="h-14 w-full rounded-lg" />
+        <Skeleton key={i} className="h-16 w-full rounded-2xl bg-white/60" />
       ))}
     </div>
   );
