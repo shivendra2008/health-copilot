@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Noto_Sans_Devanagari } from "next/font/google";
+import { Inter, Noto_Sans_Devanagari, Noto_Sans_Telugu } from "next/font/google";
 import { Providers } from "@/components/app/providers";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 const deva = Noto_Sans_Devanagari({ variable: "--font-deva", subsets: ["devanagari"], weight: ["400", "500", "600"], display: "swap" });
+const telugu = Noto_Sans_Telugu({ variable: "--font-telugu", subsets: ["telugu"], weight: ["400", "500", "600"], display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Health Copilot", template: "%s · Health Copilot" },
@@ -16,7 +17,7 @@ export const viewport: Viewport = { themeColor: "#FFFFFF", width: "device-width"
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} ${deva.variable} h-full`}>
+    <html lang="en" className={`${inter.variable} ${deva.variable} ${telugu.variable} h-full`}>
       <body className="min-h-full">
         <Providers>{children}</Providers>
       </body>

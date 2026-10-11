@@ -1,6 +1,6 @@
 # Health Copilot
 
-An AI-powered personal health records app. Upload lab reports, prescriptions, diagnostic reports and discharge summaries. The app extracts the values exactly as written, checks each one against the source text, and lets you review and correct them before anything is saved. Confirmed values feed a dashboard, lab-trend charts, a chronological timeline and a grounded assistant. The interface and AI explanations are available in English, Hindi and Marathi.
+An AI-powered personal health records app. Upload lab reports, prescriptions, diagnostic reports and discharge summaries. The app extracts the values exactly as written, checks each one against the source text, and lets you review and correct them before anything is saved. Confirmed values feed a dashboard, lab-trend charts, a chronological timeline and a grounded assistant. The interface and AI explanations are available in English, Hindi, Marathi and Telugu.
 
 > **This is a personal health information and organisation tool. It does not diagnose, prescribe, or replace a licensed clinician.**
 > It is not HIPAA- or ABDM-certified. Use fictional or de-identified documents for development and demos.
@@ -41,7 +41,7 @@ Each processing run creates a new extraction **version**, so history is preserve
 ## 1. Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com) (the free tier works).
-2. **SQL Editor → New query**: paste [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and run it, then do the same with [`0002_onboarding.sql`](supabase/migrations/0002_onboarding.sql) (onboarding profile fields and structured timeline metadata).
+2. **SQL Editor → New query**: paste [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and run it, then do the same with [`0002_onboarding.sql`](supabase/migrations/0002_onboarding.sql) (onboarding profile fields and structured timeline metadata) and [`0003_telugu.sql`](supabase/migrations/0003_telugu.sql) (allows Telugu as a preferred language).
    It creates all tables, RLS policies, the signup → profile trigger and the private `medical-documents` bucket.
    (With the Supabase CLI: `supabase link` then `supabase db push`.)
 3. **Authentication → Providers → Email**: keep it enabled. For quick local testing you can turn off **Confirm email**. If you keep it on, add `http://localhost:3000` (and your Vercel URL) under **Authentication → URL Configuration → Redirect URLs**.
@@ -123,7 +123,7 @@ Interactive docs are at `http://localhost:8000/docs` (disabled when `APP_ENV=pro
 |---|---|---|
 | GET | `/api/v1/health` | Config/OCR status (no auth) |
 | POST | `/api/v1/auth/signup` | Create an account without email verification (no auth; rate-limited per IP). The backend creates the user already confirmed via the Supabase admin API |
-| POST | `/api/v1/documents` | Upload (multipart `file`, `?language=en\|hi\|mr`). 201 when new; 200 with `duplicate: true` if the file already exists |
+| POST | `/api/v1/documents` | Upload (multipart `file`, `?language=en\|hi\|mr\|te`). 201 when new; 200 with `duplicate: true` if the file already exists |
 | GET | `/api/v1/documents` | List (`status`, `doc_type`, `q`, pagination) |
 | GET | `/api/v1/documents/{id}` | Metadata + processing status |
 | DELETE | `/api/v1/documents/{id}` | Delete file + all derived records |

@@ -38,7 +38,7 @@ def _start_processing(db, bg: BackgroundTasks, doc: dict, user_id: str, language
 
 @router.post("", response_model=UploadResponse, status_code=201)
 def upload_document(response: Response, bg: BackgroundTasks, file: UploadFile = File(...),
-                    language: str = Query("en", pattern="^(en|hi|mr)$"),
+                    language: str = Query("en", pattern="^(en|hi|mr|te)$"),
                     user: CurrentUser = Depends(get_current_user)):
     check_rate_limit(user.id, "upload", get_settings().rate_limit_uploads)
     db = get_db()

@@ -8,6 +8,7 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-deva: var(--font-deva), var(--font-inter), sans-serif;
+  --font-telugu: var(--font-telugu), var(--font-inter), sans-serif;
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -92,6 +93,10 @@
   :lang(hi),
   :lang(mr) {
     font-family: var(--font-deva);
+  }
+  :lang(te) {
+    font-family: var(--font-telugu);
+    line-height: 1.6;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {

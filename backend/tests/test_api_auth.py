@@ -124,3 +124,13 @@ def test_profile_patch_ranges():
     for bad in ({"age_years": -1}, {"height_cm": 900}, {"weight_kg": 0}):
         with pytest.raises(pydantic.ValidationError):
             ProfilePatch(**bad)
+
+
+def test_telugu_supported_everywhere():
+    from app.routers.assistant import NO_DATA
+    from app.schemas.api import ChatRequest, ProfilePatch, SummaryRequest
+    from app.services.prompts import LANG_NAMES
+    assert ChatRequest(message="hi", language="te").language == "te"
+    assert SummaryRequest(language="te").language == "te"
+    assert ProfilePatch(preferred_language="te").preferred_language == "te"
+    assert "Telugu" in LANG_NAMES["te"] and NO_DATA["te"]

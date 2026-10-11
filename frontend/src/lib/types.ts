@@ -1,4 +1,4 @@
-export type Lang = "en" | "hi" | "mr";
+export type Lang = "en" | "hi" | "mr" | "te";
 export type DocType = "prescription" | "lab_report" | "diagnostic_report" | "discharge_summary" | "other";
 export type DocStatus = "uploaded" | "extracting_text" | "analyzing" | "needs_review" | "confirmed" | "failed";
 export type Interpretation = "within_range" | "above_range" | "below_range" | "unverified";

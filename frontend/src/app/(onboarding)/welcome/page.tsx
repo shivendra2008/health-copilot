@@ -16,10 +16,11 @@ import { LANG_LABELS, useI18n } from "@/lib/i18n";
 import { en } from "@/lib/locales/en";
 import { hi } from "@/lib/locales/hi";
 import { mr } from "@/lib/locales/mr";
+import { te } from "@/lib/locales/te";
 import type { Lang, Profile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const SAMPLE: Record<Lang, string> = { en: en["app.tagline"], hi: hi["app.tagline"], mr: mr["app.tagline"] };
+const SAMPLE: Record<Lang, string> = { en: en["app.tagline"], hi: hi["app.tagline"], mr: mr["app.tagline"], te: te["app.tagline"] };
 type Gender = "female" | "male" | "other" | "none";
 
 function Stepper({ step }: { step: number }) {

@@ -4,13 +4,14 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { en, type Dict, type TKey } from "./locales/en";
 import { hi } from "./locales/hi";
 import { mr } from "./locales/mr";
+import { te } from "./locales/te";
 import type { Lang } from "./types";
 
 export type { TKey };
 
-const DICTS: Record<Lang, Dict> = { en, hi, mr };
-export const LANG_LABELS: Record<Lang, string> = { en: "English", hi: "हिन्दी", mr: "मराठी" };
-const DATE_LOCALE: Record<Lang, string> = { en: "en-IN", hi: "hi-IN", mr: "mr-IN" };
+const DICTS: Record<Lang, Dict> = { en, hi, mr, te };
+export const LANG_LABELS: Record<Lang, string> = { en: "English", hi: "हिन्दी", mr: "मराठी", te: "తెలుగు" };
+const DATE_LOCALE: Record<Lang, string> = { en: "en-IN", hi: "hi-IN", mr: "mr-IN", te: "te-IN" };
 
 type Vars = Record<string, string | number>;
 

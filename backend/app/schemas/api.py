@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .extraction import ExtractionData
 
 T = TypeVar("T")
-Lang = Literal["en", "hi", "mr"]
+Lang = Literal["en", "hi", "mr", "te"]
 
 
 class Page(BaseModel, Generic[T]):

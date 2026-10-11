@@ -2,7 +2,8 @@
 is told to ignore any instructions inside them."""
 import json
 
-LANG_NAMES = {"en": "English", "hi": "Hindi (Devanagari script)", "mr": "Marathi (Devanagari script)"}
+LANG_NAMES = {"en": "English", "hi": "Hindi (Devanagari script)", "mr": "Marathi (Devanagari script)",
+              "te": "Telugu (Telugu script)"}
 
 EXTRACTION_SYSTEM = """You are a meticulous medical document data-extraction engine.
 You convert the text of ONE medical document into structured JSON.
