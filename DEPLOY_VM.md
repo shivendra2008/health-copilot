@@ -40,9 +40,15 @@ Fill in `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `GROQ_
 
 Your API is now at `https://api.yourdomain.com` (check `/api/v1/health`).
 
-### B. No domain: temporary URL
-`./deploy.sh quick` prints a `https://<random>.trycloudflare.com` address.
-It **changes every time the tunnel container restarts**, so you must update `NEXT_PUBLIC_API_URL` in Vercel and redeploy each time. Fine for a quick test, not for lasting use.
+### B. No domain: free quick tunnel (no Cloudflare account needed)
+`./deploy.sh quick` starts a tunnel and prints a `https://<random-words>.trycloudflare.com` address.
+
+- The address stays the same while the tunnel container keeps running. Normal updates (`./deploy.sh quick`) rebuild only the API and leave the tunnel alone.
+- It **changes** if the tunnel container restarts: VM reboot, `docker compose restart`, Docker restart, or a crash.
+  When that happens: get the new address with
+  `docker compose logs quick-tunnel | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1`,
+  set it as `NEXT_PUBLIC_API_URL` in Vercel, and redeploy the frontend.
+- Cloudflare gives no uptime guarantee for quick tunnels. Fine for demos; use option A for anything lasting.
 
 ## 4. Connect the frontend
 - Vercel → project → Settings → Environment Variables → `NEXT_PUBLIC_API_URL = https://api.yourdomain.com` → **Redeploy**.

@@ -14,7 +14,14 @@ echo "==> Pulling latest code"
 git pull --ff-only
 
 echo "==> Building and starting ($PROFILE)"
-docker compose --profile "$PROFILE" up -d --build --remove-orphans
+# Rebuild only the API. The tunnel container is left running (never recreated), so a quick
+# tunnel keeps the same public URL across updates.
+docker compose --profile "$PROFILE" up -d --build --no-deps --remove-orphans api
+case "$PROFILE" in
+  quick)  TUNNEL_SVC=quick-tunnel ;;
+  *)      TUNNEL_SVC=tunnel ;;
+esac
+docker compose --profile "$PROFILE" up -d --no-recreate "$TUNNEL_SVC"
 docker image prune -f >/dev/null
 
 echo "==> Waiting for the API to become healthy"
@@ -26,6 +33,10 @@ done
 
 if [ "$PROFILE" = "quick" ]; then
   echo "==> Temporary public URL (changes whenever the tunnel restarts):"
-  sleep 5; docker compose logs quick-tunnel 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1
+  for i in $(seq 1 10); do
+    URL=$(docker compose logs quick-tunnel 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1 || true)
+    [ -n "$URL" ] && break; sleep 2
+  done
+  echo "${URL:-not ready yet - run: docker compose logs quick-tunnel | grep trycloudflare}"
 fi
 echo "Deployed commit $(git rev-parse --short HEAD)"
