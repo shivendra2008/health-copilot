@@ -80,6 +80,7 @@ Check the configuration at `GET http://localhost:8000/api/v1/health`. It also ap
 ```bash
 backend/.venv/bin/python samples/generate_samples.py   # creates fictional PDFs + a scanned PNG
 ```
+`samples/pathology_report_4pages.pdf` is a **four-page pathology report with a letterhead** (about 75 results across CBC, glycaemic, lipid, liver, kidney, iron, thyroid, vitamin and urine panels) for testing long, multi-page documents. Long documents are split into chunks, extracted part by part and merged; expect about a minute on Groq's free tier because of its token-per-minute limit.
 Register, then upload `samples/lab_report_2026-03.pdf`, review it and confirm. Next, upload `samples/lab_report_2026-08_scanned.png` (this one goes through OCR) and confirm it. Open **Lab Results → Haemoglobin** to see the trend. Fasting glucose shows two separate series (mg/dL vs mmol/L), because units are never merged. The March report also contains an embedded prompt-injection line, which extraction should ignore.
 
 ---
@@ -96,7 +97,7 @@ Register, then upload `samples/lab_report_2026-03.pdf`, review it and confirm. N
 | `GROQ_MODEL` | `openai/gpt-oss-20b` | Any Groq chat model with JSON-schema support |
 | `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` | OpenAI-compatible endpoint |
 | `GROQ_TIMEOUT_SECONDS` / `GROQ_MAX_RETRIES` | `60` / `2` | Retries with backoff on 429/5xx |
-| `LLM_MAX_INPUT_CHARS` | `24000` | Longer documents are truncated and flagged |
+| `LLM_MAX_INPUT_CHARS` / `LLM_CHUNK_CHARS` | `90000` / `6500` | Total text analysed, and text per extraction call (long documents are processed in chunks and merged) |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins |
 | `STORAGE_BUCKET` | `medical-documents` | Private bucket name |
 | `SIGNED_URL_TTL_SECONDS` | `120` | Lifetime of file view links |

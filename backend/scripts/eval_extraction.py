@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 
 from app.config import get_settings
-from app.schemas.extraction import ExtractionData, LLMExtraction, LLM_EXTRACTION_JSON_SCHEMA
+from app.schemas.extraction import ExtractionData
 from app.services.clinical_rules import normalize_test_name, parse_value
 from app.services.files import validate_upload
-from app.services.groq_client import LLMError, chat_json
-from app.services.prompts import EXTRACTION_SYSTEM, extraction_user
+from app.services.extraction import extract_structured
+from app.services.groq_client import LLMError
 from app.services.text_extraction import extract_text
 from app.services.validation import assign_keys, validate
 
@@ -33,11 +33,11 @@ def main(folder: Path):
             print("   (GROQ_API_KEY not set: skipping structured extraction)")
             continue
         try:
-            raw, model = chat_json(EXTRACTION_SYSTEM, extraction_user(ext.text, name), "medical_document_extraction", LLM_EXTRACTION_JSON_SCHEMA, max_tokens=6000)
+            llm, model, _parts = extract_structured(ext.text, name)
         except LLMError as e:
             print("   LLM error:", e.code, e.message)
             continue
-        d = assign_keys(ExtractionData.model_validate(LLMExtraction.model_validate(raw).model_dump()))
+        d = assign_keys(ExtractionData.model_validate(llm.model_dump()))
         issues = validate(d, ext.text, ext.ocr_confidence)
         got = {normalize_test_name(r.test_name): r.value for r in d.lab_results}
         totals["type_ok"] += d.document_type == exp["document_type"]

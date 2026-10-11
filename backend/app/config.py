@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     groq_model: str = "openai/gpt-oss-20b"
     groq_timeout_seconds: float = 60.0
     groq_max_retries: int = 3
-    llm_max_input_chars: int = 24000
+    llm_max_input_chars: int = 90000
+    llm_chunk_chars: int = 6500  # text per extraction call; long documents are processed in several chunks
 
     # Uploads / OCR
     max_upload_mb: int = 10

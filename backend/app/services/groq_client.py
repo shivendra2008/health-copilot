@@ -82,6 +82,8 @@ def chat_json(system: str, user: str, schema_name: str, schema: dict,
                 raise LLMError("ai_input_too_large", "The document is too long for the AI model.")
             if r.status_code == 400:
                 log.warning("Groq 400: %s", r.text[:300].replace("\n", " "))
+                if "max completion tokens" in r.text.lower() or "max_completion_tokens" in r.text:
+                    raise LLMError("ai_output_too_long", "The AI's answer for this part was too long.")
                 raise LLMError("ai_request_rejected", "The AI provider could not process this document. Please retry.")
             if r.status_code not in (408, 429, 500, 502, 503, 504):
                 break

@@ -11,10 +11,10 @@ from pydantic import ValidationError
 from ..audit import audit
 from ..config import get_settings
 from ..db import get_db
-from ..schemas.extraction import ExtractionData, LLMExtraction, LLM_EXTRACTION_JSON_SCHEMA
-from .groq_client import LLMError, chat_json
+from ..schemas.extraction import ExtractionData
+from .extraction import extract_structured
+from .groq_client import LLMError
 from .ocr import OcrUnavailable
-from .prompts import EXTRACTION_SYSTEM, extraction_user
 from .summary import generate_summary
 from .text_extraction import extract_text
 from .validation import assign_keys, validate
@@ -82,11 +82,13 @@ def process_document(doc_id: str, user_id: str, language: str = "en") -> None:
         how = {"native": "digital text", "ocr": "OCR", "mixed": "digital text and OCR"}.get(method or "", "text")
         _set(db, doc_id, user_id, status="analyzing",
              status_detail=f"Read {len(text):,} characters using {how}. Extracting medical information")
-        truncated = text[: s.llm_max_input_chars]
-        raw, model = chat_json(EXTRACTION_SYSTEM, extraction_user(truncated, doc["file_name"]),
-                               "medical_document_extraction", LLM_EXTRACTION_JSON_SCHEMA, max_tokens=6000)
+        def progress(i: int, n: int):
+            if n > 1:  # long documents are extracted part by part
+                _set(db, doc_id, user_id, status_detail=f"Read {len(text):,} characters using {how}. "
+                                                        f"Extracting medical information (part {i} of {n})")
+
         try:
-            llm = LLMExtraction.model_validate(raw)
+            llm, model, _parts = extract_structured(text, doc["file_name"], progress)
         except ValidationError:
             return _fail(db, doc_id, user_id, "ai_invalid_output",
                          "The AI response did not pass validation. Please retry processing.")

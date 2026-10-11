@@ -25,8 +25,14 @@ STRICT RULES
 """
 
 
-def extraction_user(text: str, filename_hint: str) -> str:
+def extraction_user(text: str, filename_hint: str, part: tuple[int, int] | None = None) -> str:
+    note = ""
+    if part:
+        note = (f"This is part {part[0]} of {part[1]} of the SAME document. Extract only what appears in this part. "
+                "Header details (document date, facility, clinician) may be null here if they are not in this part. "
+                "Do not repeat items that clearly belong to another part.\n")
     return (f"File name: {filename_hint}\n"
+            f"{note}"
             "Extract the structured data from the document text between the markers.\n"
             "<<<DOCUMENT_TEXT_START>>>\n"
             f"{text}\n"
