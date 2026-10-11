@@ -23,6 +23,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { LANG_LABELS, useI18n, type TKey } from "@/lib/i18n";
 import type { Lang, Profile } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { LoadingHint } from "./loaders";
 import { Logo } from "./logo";
 import { SetupNotice } from "./setup-notice";
 
@@ -179,8 +180,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!isSupabaseConfigured) return <SetupNotice />;
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center" aria-busy="true">
-        <Logo className="opacity-60" />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6" aria-busy="true">
+        <Logo />
+        <LoadingHint />
       </div>
     );
   }

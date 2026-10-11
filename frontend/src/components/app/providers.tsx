@@ -1,6 +1,7 @@
 "use client";
 
 import { SWRConfig } from "swr";
+import { TopLoadingBar } from "@/components/app/loaders";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { fetcher } from "@/lib/api";
@@ -13,6 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <I18nProvider>
         <AuthProvider>
           <TooltipProvider delayDuration={200}>
+            <TopLoadingBar />
             {children}
             <Toaster position="top-right" richColors={false} closeButton />
           </TooltipProvider>

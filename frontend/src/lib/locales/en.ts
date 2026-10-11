@@ -546,6 +546,9 @@ export const en = {
   "as.translating": "Translating…",
   "as.keptOriginal": "Shown in the original language so every value stays exact.",
   "error.timeout": "The server is taking too long to respond. Please try again.",
+  "load.records": "Loading your health records…",
+  "load.still": "Still loading. This is taking longer than usual, please keep this page open.",
+  "load.working": "Working…",
 };
 
 export type TKey = keyof typeof en;

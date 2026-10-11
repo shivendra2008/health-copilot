@@ -24,7 +24,7 @@ import { AreaSpark } from "@/components/app/area-spark";
 import { StatusPill } from "@/components/app/comparison";
 import { StatusBadge } from "@/components/app/badges";
 import { Disclaimer } from "@/components/app/states";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "./loaders";
 import { formatDate } from "@/lib/format";
 import { currentDateLocale, useI18n, type TKey } from "@/lib/i18n";
 import type { Dashboard, Interpretation, TrendTest } from "@/lib/types";
@@ -73,7 +73,11 @@ export function Hero({ d, name }: { d?: Dashboard; name?: string }) {
 
   let status: React.ReactNode;
   if (!d) {
-    status = <Skeleton className="h-9 w-64 rounded-full bg-muted" aria-hidden="true" />;
+    status = (
+      <span className="inline-flex items-center gap-2.5 text-sm text-muted-foreground" role="status">
+        <Spinner className="size-5" /> {t("load.records")}
+      </span>
+    );
   } else if (d.stats.pending_review > 0) {
     status = (
       <Link

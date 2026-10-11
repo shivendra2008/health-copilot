@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
 import { Hero, OverviewView } from "@/components/app/overview";
+import { SlowNote } from "@/components/app/loaders";
 import { ErrorState } from "@/components/app/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
@@ -59,6 +60,7 @@ export default function OverviewPage() {
             <Skeleton key={i} className="h-44 rounded-2xl bg-muted" />
           ))}
         </div>
+        <SlowNote />
       </div>
     );
   }

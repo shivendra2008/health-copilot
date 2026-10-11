@@ -1,5 +1,6 @@
 import { env } from "./env";
 import { hasKey, tr } from "./i18n";
+import { network } from "./network";
 import { getSupabase } from "./supabase";
 
 export class ApiError extends Error {
@@ -31,6 +32,15 @@ async function parseError(res: Response): Promise<ApiError> {
 }
 
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+  network.begin();
+  try {
+    return await request<T>(path, init);
+  } finally {
+    network.end();
+  }
+}
+
+async function request<T>(path: string, init: RequestInit & { json?: unknown }): Promise<T> {
   const t = await token();
   const headers = new Headers(init.headers);
   if (t) headers.set("Authorization", `Bearer ${t}`);

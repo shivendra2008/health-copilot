@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Info, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LoadingHint } from "./loaders";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -62,6 +63,7 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
   const { t } = useI18n();
   return (
     <div className="space-y-2" aria-busy="true" aria-label={t("common.loading")}>
+      <LoadingHint className="py-3" />
       {Array.from({ length: rows }).map((_, i) => (
         <Skeleton key={i} className="h-16 w-full rounded-2xl bg-muted" />
       ))}
