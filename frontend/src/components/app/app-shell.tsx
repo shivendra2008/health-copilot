@@ -47,7 +47,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex h-11 items-center gap-3 rounded-xl px-3.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-white/50 hover:text-foreground",
+              "flex h-11 items-center gap-3 rounded-xl px-3.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground",
               active && "neu-inset rounded-xl! font-semibold text-brand-700 hover:bg-transparent hover:text-brand-700",
             )}
           >
@@ -104,7 +104,7 @@ function SidebarFooter() {
   const { t, lang, setLang } = useI18n();
   const router = useRouter();
   return (
-    <div className="space-y-3 border-t border-white/60 pt-4">
+    <div className="space-y-3 border-t border-[var(--neu-edge)] pt-4">
       <label className="block px-1 text-xs text-muted-foreground">
         <span className="sr-only">Language</span>
         <select

@@ -79,7 +79,7 @@ export default function LoginPage() {
           <circle cx="280" cy="280" r="200" fill="none" stroke="#D3E6DC" strokeWidth="1.5" />
           <circle cx="280" cy="280" r="130" fill="#E2EFE8" />
           <circle cx="280" cy="280" r="70" fill="#D3E9DE" />
-          <circle cx="90" cy="150" r="20" fill="#F8DFAE" />
+          <circle cx="470" cy="70" r="18" fill="#F8DFAE" />
         </svg>
         <Logo />
         <div className="max-w-md">

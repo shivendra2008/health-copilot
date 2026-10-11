@@ -172,7 +172,7 @@ function AssistantContent() {
               <li key={c.id} className="group flex items-center">
                 <button
                   onClick={() => open(c.id)}
-                  className={cn("min-w-0 flex-1 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-white/50", convId === c.id && "neu-inset rounded-xl! text-brand-700")}
+                  className={cn("min-w-0 flex-1 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-muted/70", convId === c.id && "neu-inset rounded-xl! text-brand-700")}
                 >
                   <span className="block truncate">{c.title}</span>
                   <span className="block text-xs text-muted-foreground">{relativeTime(c.updated_at)}</span>
@@ -187,7 +187,7 @@ function AssistantContent() {
         </aside>
 
         <section className="surface flex min-h-[70vh] flex-col">
-          <div className="flex items-center gap-2 border-b border-white/60 px-5 py-2.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 border-b border-[var(--neu-edge)] px-5 py-2.5 text-xs text-muted-foreground">
             <ShieldCheck className="size-3.5 text-ok" />
             {t("assistant.grounded")}. It cites every answer, says when your records don&apos;t contain it, and never diagnoses.
           </div>
@@ -237,7 +237,7 @@ function AssistantContent() {
             <div ref={endRef} />
           </div>
           <form
-            className="border-t border-white/60 p-4"
+            className="border-t border-[var(--neu-edge)] p-4"
             onSubmit={(e) => {
               e.preventDefault();
               send(input);

@@ -62,7 +62,7 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="space-y-2" aria-busy="true" aria-label="Loading">
       {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} className="h-16 w-full rounded-2xl bg-white/60" />
+        <Skeleton key={i} className="h-16 w-full rounded-2xl bg-muted" />
       ))}
     </div>
   );

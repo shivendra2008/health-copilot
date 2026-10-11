@@ -123,7 +123,7 @@ export default function TimelinePage() {
               <h2 className="sticky top-14 z-10 mb-3 bg-[var(--neu-surface)]/90 py-1.5 backdrop-blur text-xs font-semibold tracking-wide text-muted-foreground uppercase lg:top-0">
                 {formatDate(`${month}-01`, { month: "long", year: "numeric" })}
               </h2>
-              <ol className="relative ml-4 space-y-3 border-l-2 border-white/80 pl-6">
+              <ol className="relative ml-4 space-y-3 border-l-2 border-[var(--neu-edge)] pl-6">
                 {evs.map((e) => {
                   const Icon = ICONS[e.event_type];
                   return (

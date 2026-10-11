@@ -206,7 +206,7 @@ function ResultsDonut({ d }: { d: Dashboard }) {
           <ul className="w-full space-y-2">
             {rows.map((r) => (
               <li key={r.key}>
-                <Link href="/lab-results" className="neu-press flex items-center justify-between gap-3 rounded-xl px-3 py-2 hover:bg-white/50">
+                <Link href="/lab-results" className="neu-press flex items-center justify-between gap-3 rounded-xl px-3 py-2 hover:bg-muted/70">
                   <span className="flex items-center gap-2.5 text-sm">
                     <span className="size-2.5 rounded-full" style={{ background: STATUS_COLOR[r.key] }} />
                     <StatusPill status={r.key} />
@@ -372,7 +372,7 @@ function Recent({ d }: { d: Dashboard }) {
           <li key={doc.id}>
             <Link
               href={doc.status === "needs_review" ? `/records/${doc.id}/review` : `/records/${doc.id}`}
-              className="neu-press flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/50"
+              className="neu-press flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-muted/70"
             >
               <span className="neu-sm flex size-10 shrink-0 items-center justify-center rounded-xl text-brand-600">
                 <FileText className="size-4" />

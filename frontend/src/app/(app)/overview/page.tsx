@@ -26,12 +26,12 @@ export default function OverviewPage() {
     return (
       <div className="space-y-6" aria-busy="true" aria-label="Loading">
         <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-          <Skeleton className="h-[340px] rounded-3xl bg-white/60" />
-          <Skeleton className="h-[340px] rounded-3xl bg-white/60" />
+          <Skeleton className="h-[340px] rounded-3xl bg-muted" />
+          <Skeleton className="h-[340px] rounded-3xl bg-muted" />
         </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 rounded-2xl bg-white/60" />
+            <Skeleton key={i} className="h-44 rounded-2xl bg-muted" />
           ))}
         </div>
       </div>

@@ -11,7 +11,7 @@ const buttonVariants = cva(
         default:
           "bg-primary text-primary-foreground shadow-[4px_4px_10px_rgba(29,107,80,0.28),-3px_-3px_8px_rgba(255,255,255,0.85)] hover:bg-brand-700",
         outline:
-          "border-white/70 bg-[var(--neu-surface)] text-foreground shadow-[4px_4px_10px_var(--neu-shadow),-4px_-4px_10px_var(--neu-highlight)] hover:text-brand-700 active:shadow-[inset_3px_3px_7px_var(--neu-shadow),inset_-3px_-3px_7px_var(--neu-highlight)] aria-expanded:text-brand-700",
+          "border-[var(--neu-edge)] bg-[var(--neu-surface)] text-foreground shadow-[4px_4px_10px_var(--neu-shadow),-4px_-4px_10px_var(--neu-highlight)] hover:text-brand-700 active:shadow-[inset_3px_3px_7px_var(--neu-shadow),inset_-3px_-3px_7px_var(--neu-highlight)] aria-expanded:text-brand-700",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
