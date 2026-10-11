@@ -1,16 +1,18 @@
 "use client";
 
 import { useId } from "react";
+import { useI18n } from "@/lib/i18n";
 
 const LINE = "#0E7A54";
 
 /** Soft area trend line. Decorative: the latest value and range are always shown as text beside it. */
 export function AreaSpark({ points, height = 56 }: { points: { value: number }[]; height?: number }) {
   const id = useId().replace(/:/g, "");
+  const { t } = useI18n();
   if (points.length < 2) {
     return (
       <div className="flex items-center text-[11px] text-muted-foreground" style={{ height }}>
-        Trend appears after your next result
+        {t("ov.trendLater")}
       </div>
     );
   }

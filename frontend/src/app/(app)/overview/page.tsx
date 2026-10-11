@@ -28,7 +28,7 @@ export default function OverviewPage() {
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) {
     return (
-      <div className="space-y-6" aria-busy="true" aria-label="Loading">
+      <div className="space-y-6" aria-busy="true" aria-label={t("common.loading")}>
         <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
           <Skeleton className="h-[340px] rounded-3xl bg-muted" />
           <Skeleton className="h-[340px] rounded-3xl bg-muted" />

@@ -41,7 +41,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDocumentPoll } from "@/hooks/use-document-poll";
 import { api, errorMessage } from "@/lib/api";
 import { formatDate, formatDateTime, isProcessing } from "@/lib/format";
-import { LANG_LABELS, useI18n } from "@/lib/i18n";
+import { hasKey, LANG_LABELS, tr, useI18n, type TKey } from "@/lib/i18n";
 import type { Derived, DocumentMeta, Extraction, ExtractionHistoryItem, LabResult, Lang, Summary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -104,10 +104,10 @@ function ReportHeader({
     const d = ex.data;
     const outside = ex.derived.filter((x) => isOut(x.status)).length;
     stats = [
-      { label: "Lab results", value: d.lab_results.length },
-      { label: "Outside printed range", value: outside, tone: outside > 0 ? "warn" : undefined },
-      { label: "Medicines", value: d.medications.length },
-      { label: "Diagnoses stated", value: d.conditions.length },
+      { label: t("rep.labResults"), value: d.lab_results.length },
+      { label: t("rep.outside"), value: outside, tone: outside > 0 ? "warn" : undefined },
+      { label: t("ov.medicines"), value: d.medications.length },
+      { label: t("rep.diagnoses"), value: d.conditions.length },
     ];
     const sections = ["lab_results", "medications", "conditions", "procedures", "follow_ups", "findings"] as const;
     const items = sections.flatMap((sec) =>
@@ -141,13 +141,13 @@ function ReportHeader({
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <StatusBadge status={doc.status} />
           <Button variant="outline" size="sm" onClick={onViewOriginal} className="xl:hidden">
-            <Eye /> View original
+            <Eye /> {t("rep.viewOriginal")}
           </Button>
           {ready && (
             <Button asChild variant={doc.status === "needs_review" ? "default" : "outline"} size="sm">
               <Link href={`/records/${doc.id}/review`}>
                 {doc.status === "needs_review" ? <ClipboardCheck /> : <Pencil />}
-                {doc.status === "needs_review" ? t("review.title") : "Edit values"}
+                {doc.status === "needs_review" ? t("review.title") : t("rep.edit")}
               </Link>
             </Button>
           )}
@@ -169,14 +169,14 @@ function ReportHeader({
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t bg-muted/30 px-5 py-2.5 text-xs text-muted-foreground sm:px-6">
               <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                 <ShieldCheck className="size-3.5 text-ok" />
-                {matched} of {aiCount} values matched to the document text
+                {t("rep.matched", { m: matched, n: aiCount })}
               </span>
               {edited > 0 && (
                 <span className="inline-flex items-center gap-1.5">
-                  <Pencil className="size-3" /> {edited} edited by you
+                  <Pencil className="size-3" /> {t("rep.editedByYou", { n: edited })}
                 </span>
               )}
-              {ex?.status === "confirmed" && ex.confirmed_at && <span>Saved to your record {formatDate(ex.confirmed_at)}</span>}
+              {ex?.status === "confirmed" && ex.confirmed_at && <span>{t("rep.savedOn", { date: formatDate(ex.confirmed_at) ?? "" })}</span>}
             </div>
           )}
         </>
@@ -227,20 +227,20 @@ function PlainWords({
             <Sparkles className="size-4" />
           </span>
           <div>
-            <h2 className="text-base font-semibold tracking-tight">In plain words</h2>
-            <p className="text-xs text-muted-foreground">Written by AI from the values on this page. Not a diagnosis.</p>
+            <h2 className="text-base font-semibold tracking-tight">{t("rep.plainWords")}</h2>
+            <p className="text-xs text-muted-foreground">{t("rep.plainHint")}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
           <Segmented
-            label="Explanation language"
+            label={t("rep.explLang")}
             size="sm"
             value={view}
             onChange={choose}
             options={(Object.keys(LANG_LABELS) as Lang[]).map((l) => ({ value: l, label: LANG_LABELS[l] }))}
           />
           {summary && (
-            <Button size="icon-sm" variant="ghost" onClick={() => generate(view)} disabled={busy !== null} aria-label="Rewrite explanation" title="Rewrite">
+            <Button size="icon-sm" variant="ghost" onClick={() => generate(view)} disabled={busy !== null} aria-label={t("rep.rewrite")} title={t("rep.rewrite")}>
               {busy === view ? <Loader2 className="animate-spin" /> : <RefreshCw />}
             </Button>
           )}
@@ -252,7 +252,7 @@ function PlainWords({
           busy === view ? (
             <div className="space-y-3" aria-busy="true">
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" /> Writing your explanation in {LANG_LABELS[view]}. This can take up to a minute.
+                <Loader2 className="size-4 animate-spin" /> {t("rep.writing", { lang: LANG_LABELS[view] })}
               </p>
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-11/12" />
@@ -261,7 +261,7 @@ function PlainWords({
           ) : (
             <div className="flex flex-col items-start gap-3 py-2">
               <p className="text-sm text-muted-foreground">
-                Get a short, plain-language explanation of this document in {LANG_LABELS[view]}.
+                {t("rep.getExpl", { lang: LANG_LABELS[view] })}
               </p>
               <Button onClick={() => generate(view)} disabled={busy !== null}>
                 <Sparkles /> {t("report.generate")}
@@ -294,13 +294,14 @@ function PlainWords({
 /* ----------------------------------------------------------------------------- results */
 
 function OutsideRange({ items, terms }: { items: { r: LabResult; d: Derived }[]; terms?: Summary["term_explanations"] }) {
+  const { t } = useI18n();
   if (!items.length) return null;
   return (
     <section>
       <SectionTitle
         icon={HeartPulse}
-        title="Worth discussing with your doctor"
-        hint="These values are outside the reference range printed on this report. That alone isn't a diagnosis."
+        title={t("rep.worth")}
+        hint={t("rep.worthHint")}
       />
       <div className="grid gap-3 md:grid-cols-2">
         {items.map(({ r, d }) => {
@@ -332,13 +333,13 @@ function ResultsList({ ex, terms }: { ex: Extraction; terms?: Summary["term_expl
   const derived = new Map(ex.derived.map((d) => [d.key, d]));
   const groups = new Map<string, LabResult[]>();
   ex.data.lab_results.forEach((r) => {
-    const g = r.category?.trim() || "Results";
+    const g = r.category?.trim() || tr("rep.results");
     groups.set(g, [...(groups.get(g) ?? []), r]);
   });
   if (!ex.data.lab_results.length) return null;
   return (
     <section>
-      <SectionTitle icon={FlaskConical} title="All results" hint="Exactly as printed on the report, compared with its own reference range." />
+      <SectionTitle icon={FlaskConical} title={t("rep.allResults")} hint={t("rep.allHint")} />
       <div className="space-y-3">
         {[...groups.entries()].map(([group, rows]) => (
           <div key={group} className="surface overflow-hidden">
@@ -347,10 +348,10 @@ function ResultsList({ ex, terms }: { ex: Extraction; terms?: Summary["term_expl
               <span className="text-xs text-muted-foreground">{rows.length}</span>
             </div>
             <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)] gap-x-4 border-b px-5 py-2 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase sm:grid">
-              <span>Test</span>
+              <span>{t("rep.test")}</span>
               <span>{t("compare.yours")}</span>
               <span>{t("compare.expected")}</span>
-              <span className="text-right">Result</span>
+              <span className="text-right">{t("rep.result")}</span>
             </div>
             <ul className="divide-y">
               {rows.map((r) => {
@@ -368,7 +369,7 @@ function ResultsList({ ex, terms }: { ex: Extraction; terms?: Summary["term_expl
                       {expl && (
                         <details className="group mt-1">
                           <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-brand-600 hover:underline [&::-webkit-details-marker]:hidden">
-                            <Info className="size-3" /> What is this?
+                            <Info className="size-3" /> {t("rep.whatIs")}
                           </summary>
                           <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{expl}</p>
                         </details>
@@ -384,7 +385,7 @@ function ResultsList({ ex, terms }: { ex: Extraction; terms?: Summary["term_expl
                     <div className="flex items-baseline gap-2 sm:block">
                       <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase sm:hidden">{t("compare.expected")}</p>
                       <p className="text-sm tabular-nums">
-                        {r.reference_range ?? <span className="text-muted-foreground">Not printed</span>}
+                        {r.reference_range ?? <span className="text-muted-foreground">{t("compare.notPrinted")}</span>}
                         {r.reference_range && r.unit && <span className="ml-1 text-xs text-muted-foreground">{r.unit}</span>}
                       </p>
                     </div>
@@ -415,11 +416,12 @@ function ResultsList({ ex, terms }: { ex: Extraction; terms?: Summary["term_expl
 }
 
 function Medicines({ ex }: { ex: Extraction }) {
+  const { t } = useI18n();
   const meds = ex.data.medications;
   if (!meds.length) return null;
   return (
     <section>
-      <SectionTitle icon={Pill} title="Medicines" hint="As written on the prescription. Never change a medicine or dose without your doctor." />
+      <SectionTitle icon={Pill} title={t("ov.medicines")} hint={t("rep.medHint")} />
       <div className="grid gap-3 md:grid-cols-2">
         {meds.map((m) => (
           <div key={m.key} className="surface p-4">
@@ -433,10 +435,10 @@ function Medicines({ ex }: { ex: Extraction }) {
             {[m.dosage, m.frequency, m.duration, m.route].some(Boolean) ? (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {[
-                  ["Dose", m.dosage],
-                  ["How often", m.frequency],
-                  ["For", m.duration],
-                  ["Route", m.route],
+                  [t("rep.dose"), m.dosage],
+                  [t("rep.howOften"), m.frequency],
+                  [t("rep.for"), m.duration],
+                  [t("rep.route"), m.route],
                 ]
                   .filter(([, v]) => v)
                   .map(([k, v]) => (
@@ -447,7 +449,7 @@ function Medicines({ ex }: { ex: Extraction }) {
                   ))}
               </div>
             ) : (
-              <p className="mt-2 text-xs text-muted-foreground">No dosage instructions written.</p>
+              <p className="mt-2 text-xs text-muted-foreground">{t("rep.noDosage")}</p>
             )}
             {m.instructions && <p className="mt-2 text-sm text-muted-foreground">{m.instructions}</p>}
           </div>
@@ -458,17 +460,18 @@ function Medicines({ ex }: { ex: Extraction }) {
 }
 
 function AlsoInDocument({ ex }: { ex: Extraction }) {
+  const { t } = useI18n();
   const d = ex.data;
   const groups = [
-    { icon: Stethoscope, title: "Diagnoses stated", items: d.conditions.map((c) => ({ k: c.key, main: c.description, sub: c.status })) },
-    { icon: Syringe, title: "Procedures", items: d.procedures.map((p) => ({ k: p.key, main: p.name, sub: formatDate(p.date) })) },
-    { icon: CalendarClock, title: "Follow-up", items: d.follow_ups.map((f) => ({ k: f.key, main: f.instruction, sub: formatDate(f.date) })) },
-    { icon: FileText, title: "Doctor's notes", items: d.findings.map((f) => ({ k: f.key, main: f.text, sub: null })) },
+    { icon: Stethoscope, title: t("rep.diagnoses"), items: d.conditions.map((c) => ({ k: c.key, main: c.description, sub: c.status })) },
+    { icon: Syringe, title: t("rep.procedures"), items: d.procedures.map((p) => ({ k: p.key, main: p.name, sub: formatDate(p.date) })) },
+    { icon: CalendarClock, title: t("rep.followUp"), items: d.follow_ups.map((f) => ({ k: f.key, main: f.instruction, sub: formatDate(f.date) })) },
+    { icon: FileText, title: t("rep.notes"), items: d.findings.map((f) => ({ k: f.key, main: f.text, sub: null })) },
   ].filter((g) => g.items.length);
   if (!groups.length) return null;
   return (
     <section>
-      <SectionTitle icon={ClipboardCheck} title="Also in this document" hint="Recorded exactly as written by the clinician." />
+      <SectionTitle icon={ClipboardCheck} title={t("rep.also")} hint={t("rep.alsoHint")} />
       <div className="grid gap-3 md:grid-cols-2">
         {groups.map(({ icon: Icon, title, items }) => (
           <div key={title} className="surface p-4">
@@ -491,14 +494,15 @@ function AlsoInDocument({ ex }: { ex: Extraction }) {
 }
 
 function DoctorQuestions({ summary, view }: { summary?: Summary; view: Lang }) {
+  const { t } = useI18n();
   if (!summary?.questions_for_clinician.length) return null;
   const qs = summary.questions_for_clinician;
   return (
     <section className="surface p-5 sm:p-6" lang={view}>
       <SectionTitle
         icon={Stethoscope}
-        title="Questions to ask your doctor"
-        hint="Suggested by AI to help you prepare for your next visit."
+        title={t("rep.questions")}
+        hint={t("rep.questionsHint")}
         action={
           <Button
             variant="outline"
@@ -506,13 +510,13 @@ function DoctorQuestions({ summary, view }: { summary?: Summary; view: Lang }) {
             onClick={async () => {
               try {
                 await navigator.clipboard.writeText(qs.map((q, i) => `${i + 1}. ${q}`).join("\n"));
-                toast.success("Questions copied");
+                toast.success(t("rep.copied"));
               } catch {
-                toast.error("Couldn't copy. Select the text instead.");
+                toast.error(t("rep.copyFail"));
               }
             }}
           >
-            <Copy /> Copy
+            <Copy /> {t("rep.copy")}
           </Button>
         }
       />
@@ -531,13 +535,14 @@ function DoctorQuestions({ summary, view }: { summary?: Summary; view: Lang }) {
 }
 
 function Glossary({ summary, ex, view }: { summary?: Summary; ex: Extraction; view: Lang }) {
+  const { t } = useI18n();
   if (!summary) return null;
   const used = new Set(ex.data.lab_results.map((r) => termFor(summary.term_explanations, r.test_name)).filter(Boolean));
   const rest = summary.term_explanations.filter((x) => !used.has(x.explanation));
   if (!rest.length) return null;
   return (
     <section className="surface p-5 sm:p-6" lang={view}>
-      <SectionTitle icon={Info} title="Medical terms explained" />
+      <SectionTitle icon={Info} title={t("rep.terms")} />
       <dl className="divide-y">
         {rest.map((x) => (
           <div key={x.term} className="py-3 first:pt-0 last:pb-0">
@@ -553,16 +558,17 @@ function Glossary({ summary, ex, view }: { summary?: Summary; ex: Extraction; vi
 /* ----------------------------------------------------------------------------- side rail */
 
 function RecordDetails({ doc, ex, history }: { doc: DocumentMeta; ex: Extraction; history?: ExtractionHistoryItem[] }) {
+  const { t } = useI18n();
   return (
     <section className="surface p-4 text-sm">
-      <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">About this record</h3>
+      <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t("rep.about")}</h3>
       <dl className="space-y-2">
         {[
-          ["Read using", doc.text_method === "native" ? "Digital PDF text" : doc.text_method === "ocr" ? "OCR (scanned)" : doc.text_method ? "Digital text + OCR" : "—"],
-          ...(doc.ocr_confidence != null ? [["OCR confidence", `${Math.round(doc.ocr_confidence * 100)}%`]] : []),
-          ["Pages", String(doc.page_count ?? 1)],
-          ["Extracted by", ex.model ?? "—"],
-          ["Uploaded", formatDate(doc.created_at) ?? "—"],
+          [t("rep.readUsing"), doc.text_method === "native" ? t("source.native") : doc.text_method === "ocr" ? t("rep.ocrScanned") : doc.text_method ? t("source.mixed") : "—"],
+          ...(doc.ocr_confidence != null ? [[t("rep.ocrConf"), `${Math.round(doc.ocr_confidence * 100)}%`]] : []),
+          [t("rep.pages"), String(doc.page_count ?? 1)],
+          [t("rep.extractedBy"), ex.model ?? "—"],
+          [t("rep.uploaded"), formatDate(doc.created_at) ?? "—"],
         ].map(([k, v]) => (
           <div key={k} className="flex justify-between gap-3">
             <dt className="text-muted-foreground">{k}</dt>
@@ -572,18 +578,18 @@ function RecordDetails({ doc, ex, history }: { doc: DocumentMeta; ex: Extraction
       </dl>
       {history && history.length > 0 && (
         <details className="mt-4 border-t pt-3">
-          <summary className="cursor-pointer text-xs font-medium text-brand-600">Version history ({history.length})</summary>
+          <summary className="cursor-pointer text-xs font-medium text-brand-600">{t("rep.history", { n: history.length })}</summary>
           <ul className="mt-2 space-y-1.5 text-xs">
             {history.map((h) => (
               <li key={h.id} className="flex justify-between gap-2">
                 <span>
                   v{h.version} · {formatDateTime(h.created_at)}
                 </span>
-                <span className="capitalize text-muted-foreground">{h.status.replace("_", " ")}</span>
+                <span className="text-muted-foreground">{hasKey(`ver.${h.status}`) ? t(`ver.${h.status}` as TKey) : h.status}</span>
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-[11px] text-muted-foreground">The original AI output of every version is kept. Your edits are stored separately.</p>
+          <p className="mt-2 text-[11px] text-muted-foreground">{t("rep.historyNote")}</p>
         </details>
       )}
     </section>
@@ -638,7 +644,7 @@ export default function ReportPage() {
             {doc.status === "needs_review" && (
               <div className="flex flex-col gap-3 rounded-xl border border-warn/30 bg-warn-bg/70 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
                 <span>
-                  <strong className="font-semibold">Not saved to your record yet.</strong> Check the values against the original, then confirm.
+                  <strong className="font-semibold">{t("rep.notSaved")}</strong> {t("rep.notSavedHint")}
                 </span>
                 <Button asChild size="sm">
                   <Link href={`/records/${id}/review`}>
@@ -667,9 +673,9 @@ export default function ReportPage() {
                 <div className="sticky top-6 space-y-4">
                   <div className="surface overflow-hidden">
                     <div className="flex items-center justify-between border-b px-4 py-2.5">
-                      <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Original document</span>
+                      <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t("doc.original")}</span>
                       <Button variant="ghost" size="xs" onClick={() => setShowOriginal(true)}>
-                        <Eye /> Expand
+                        <Eye /> {t("rep.expand")}
                       </Button>
                     </div>
                     <DocumentViewer id={id} bare className="h-[420px]" />
@@ -684,7 +690,7 @@ export default function ReportPage() {
 
       <Sheet open={showOriginal} onOpenChange={setShowOriginal}>
         <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-3xl">
-          <SheetTitle className="border-b px-5 py-3.5 text-sm">Original document</SheetTitle>
+          <SheetTitle className="border-b px-5 py-3.5 text-sm">{t("doc.original")}</SheetTitle>
           <div className="min-h-0 flex-1 p-3">{showOriginal && <SourcePanel id={id} highlight={null} className="h-full" />}</div>
         </SheetContent>
       </Sheet>

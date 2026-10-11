@@ -1,4 +1,5 @@
 import { env } from "./env";
+import { hasKey, tr } from "./i18n";
 import { getSupabase } from "./supabase";
 
 export class ApiError extends Error {
@@ -89,8 +90,12 @@ export async function uploadWithProgress<T>(
   });
 }
 
+/** User-facing error text in the active language (falls back to the server's English message). */
 export function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) return e.message;
+  if (e instanceof ApiError) {
+    const key = `error.${e.code}`;
+    return hasKey(key) ? tr(key) : e.message;
+  }
   if (e instanceof Error) return e.message;
-  return "Something went wrong.";
+  return tr("error.internal_error");
 }

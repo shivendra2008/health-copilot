@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from ..audit import audit
 from ..auth import CurrentUser, get_current_user
 from ..deps import get_db
+from ..errors import ApiError
 from ..schemas.api import ProfileOut, ProfilePatch
 
 router = APIRouter(prefix="/api/v1", tags=["profile"])
@@ -28,7 +29,13 @@ def update_profile(body: ProfilePatch, user: CurrentUser = Depends(get_current_u
     _get_or_create(db, user)
     changes = body.model_dump(exclude_unset=True, mode="json")
     if changes:
-        db.table("profiles").update(changes).eq("id", user.id).execute()
+        try:
+            db.table("profiles").update(changes).eq("id", user.id).execute()
+        except Exception as e:  # noqa: BLE001
+            if "column" in str(e).lower() and any(k in changes for k in ("age_years", "height_cm", "weight_kg", "onboarding_completed")):
+                raise ApiError(503, "migration_required",
+                               "The database needs an update. Run supabase/migrations/0002_onboarding.sql in Supabase.")
+            raise
         audit(db, user.id, "profile.updated", "profile", user.id, {"fields": sorted(changes)})
     return ProfileOut(**_get_or_create(db, user), email=user.email)
 

@@ -25,7 +25,7 @@ import { StatusPill } from "@/components/app/comparison";
 import { StatusBadge } from "@/components/app/badges";
 import { Disclaimer } from "@/components/app/states";
 import { formatDate } from "@/lib/format";
-import { useI18n, type TKey } from "@/lib/i18n";
+import { currentDateLocale, useI18n, type TKey } from "@/lib/i18n";
 import type { Dashboard, Interpretation, TrendTest } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -37,11 +37,7 @@ const STATUS_COLOR: Record<Interpretation, string> = {
 };
 const LINE = "#0E7A54";
 
-const QUESTIONS = [
-  "Which of my results were outside the printed range?",
-  "What medicines are on my latest prescription?",
-  "How has my haemoglobin changed?",
-];
+const QUESTIONS = ["ask.q1", "ask.q2", "ask.q3"] as const;
 
 /* ----------------------------------------------------------------------------- small pieces */
 
@@ -71,7 +67,7 @@ function greetingKey(hour: number): TKey {
 function Hero({ d, name }: { d: Dashboard; name?: string }) {
   const { t } = useI18n();
   const [hour] = useState(() => new Date().getHours());
-  const [today] = useState(() => new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" }));
+  const [today] = useState(() => new Date().toLocaleDateString(currentDateLocale(), { weekday: "long", day: "numeric", month: "long" }));
   const pending = d.recent_documents.find((x) => x.status === "needs_review");
 
   let status: React.ReactNode;
@@ -82,14 +78,14 @@ function Hero({ d, name }: { d: Dashboard; name?: string }) {
         className="neu-sm neu-press inline-flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium"
       >
         <span className="flex size-6 items-center justify-center rounded-full bg-sun/90 text-xs font-bold text-[#5a3a05]">{d.stats.pending_review}</span>
-        {d.stats.pending_review === 1 ? "report needs" : "reports need"} a quick look from you
+        {t("ov.needsLookText")}
         <ArrowRight className="size-4 text-brand-600" />
       </Link>
     );
   } else if (d.stats.processing > 0) {
     status = (
       <span className="neu-sm inline-flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium">
-        <Loader2 className="size-4 animate-spin text-brand-600" /> Analysing {d.stats.processing} document{d.stats.processing > 1 ? "s" : ""} right now
+        <Loader2 className="size-4 animate-spin text-brand-600" /> {t("ov.analysing", { n: d.stats.processing })}
       </span>
     );
   } else {
@@ -136,7 +132,7 @@ function Hero({ d, name }: { d: Dashboard; name?: string }) {
           {[
             { label: t("overview.totalRecords"), value: d.stats.total_documents, icon: ClipboardList, href: "/records" },
             { label: t("nav.labs"), value: d.stats.lab_results, icon: FlaskConical, href: "/lab-results" },
-            { label: "Medicines", value: d.stats.medications, icon: Pill, href: "/timeline" },
+            { label: t("ov.medicines"), value: d.stats.medications, icon: Pill, href: "/timeline" },
           ].map(({ label, value, icon: Icon, href }) => (
             <Link key={label} href={href} className="neu-inset block px-3.5 py-3 transition-opacity hover:opacity-90">
               <Icon className="mb-1.5 size-4 text-brand-600" />
@@ -173,7 +169,7 @@ function ResultsDonut({ d }: { d: Dashboard }) {
           <div className="neu-inset mb-3 flex size-24 items-center justify-center rounded-full">
             <FlaskConical className="size-7 text-brand-600" />
           </div>
-          <p className="text-sm text-muted-foreground">Confirm a lab report to see how your results compare.</p>
+          <p className="text-sm text-muted-foreground">{t("ov.confirmToCompare")}</p>
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center gap-6 sm:flex-row xl:flex-col 2xl:flex-row">
@@ -199,7 +195,7 @@ function ResultsDonut({ d }: { d: Dashboard }) {
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
               <span className="text-3xl font-semibold tabular-nums">{b.within_range}</span>
               <span className="text-[11px] leading-tight text-muted-foreground">
-                of {compared || total} in range
+                {t("ov.ofInRange", { n: compared || total })}
               </span>
             </div>
           </div>
@@ -225,6 +221,7 @@ function ResultsDonut({ d }: { d: Dashboard }) {
 /* ----------------------------------------------------------------------------- trend tiles */
 
 function TrendTile({ test }: { test: TrendTest }) {
+  const { t } = useI18n();
   const l = test.latest;
   const out = l.interpretation === "above_range" || l.interpretation === "below_range";
   return (
@@ -240,7 +237,7 @@ function TrendTile({ test }: { test: TrendTest }) {
         {l.unit && <span className="ml-1.5 text-xs text-muted-foreground">{l.unit}</span>}
       </p>
       <p className="mt-1.5 text-[11px] text-muted-foreground">
-        Expected {l.reference_range_text ?? "—"} · {formatDate(l.effective_date)}
+        {t("ov.expectedOn", { range: l.reference_range_text ?? "—", date: formatDate(l.effective_date) ?? "" })}
       </p>
       <div className="mt-3">
         <AreaSpark points={test.spark} />
@@ -255,8 +252,8 @@ function RecordsOverTime({ d }: { d: Dashboard }) {
   const { t } = useI18n();
   const data = d.monthly.map((m) => ({
     ...m,
-    label: new Date(`${m.month}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short" }),
-    full: new Date(`${m.month}-01T00:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" }),
+    label: new Date(`${m.month}-01T00:00:00`).toLocaleDateString(currentDateLocale(), { month: "short" }),
+    full: new Date(`${m.month}-01T00:00:00`).toLocaleDateString(currentDateLocale(), { month: "long", year: "numeric" }),
   }));
   const total = data.reduce((a, m) => a + m.documents, 0);
   return (
@@ -264,7 +261,7 @@ function RecordsOverTime({ d }: { d: Dashboard }) {
       <CardTitle
         icon={Activity}
         title={t("overview.overTime")}
-        hint={`${total} document${total === 1 ? "" : "s"} in the last 12 months, by the date on each report`}
+        hint={t("ov.docsInYear", { n: total })}
         action={
           <Link href="/timeline" className="text-xs font-semibold text-brand-600 hover:underline">
             {t("nav.timeline")}
@@ -285,7 +282,7 @@ function RecordsOverTime({ d }: { d: Dashboard }) {
                   <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-sm">
                     <p className="font-medium">{m.full}</p>
                     <p>
-                      {m.documents} document{m.documents === 1 ? "" : "s"} · {m.confirmed} confirmed
+                      {t("ov.monthTip", { n: m.documents, c: m.confirmed })}
                     </p>
                   </div>
                 );
@@ -305,7 +302,7 @@ function Attention({ d }: { d: Dashboard }) {
   const { t } = useI18n();
   return (
     <section className="neu p-6">
-      <CardTitle icon={FlaskConical} title={t("overview.attention")} hint="Outside the range printed on the report. Not a diagnosis." />
+      <CardTitle icon={FlaskConical} title={t("overview.attention")} hint={t("ov.attentionHint")} />
       {d.attention.length === 0 ? (
         <div className="neu-inset flex items-center gap-3 px-4 py-5 text-sm">
           <CheckCircle2 className="size-5 shrink-0 text-ok" />
@@ -321,7 +318,7 @@ function Attention({ d }: { d: Dashboard }) {
                   <StatusPill status={o.interpretation} />
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground tabular-nums">
-                  Yours <span className="font-semibold text-warn">{o.value_text} {o.unit}</span> · Expected {o.reference_range_text ?? "—"}
+                  {t("ov.yoursExpected", { value: `${o.value_text} ${o.unit ?? ""}`.trim(), range: o.reference_range_text ?? "—" })}
                 </p>
               </Link>
             </li>
@@ -344,7 +341,7 @@ function AskCard() {
         </span>
       </Link>
       <div className="mt-4 flex flex-wrap gap-2">
-        {QUESTIONS.map((q) => (
+        {QUESTIONS.map((k) => t(k)).map((q) => (
           <Link key={q} href={`/assistant?q=${encodeURIComponent(q)}`} className="neu-sm neu-press inline-block max-w-full rounded-2xl px-3.5 py-2 text-left text-xs font-medium">
             {q}
           </Link>
@@ -380,7 +377,7 @@ function Recent({ d }: { d: Dashboard }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{doc.source_facility ?? doc.file_name}</span>
                 <span className="block truncate text-xs text-muted-foreground">
-                  {t(`doctype.${doc.doc_type}`)} · {formatDate(doc.document_date) ?? `Uploaded ${formatDate(doc.created_at)}`}
+                  {t(`doctype.${doc.doc_type}`)} · {formatDate(doc.document_date) ?? t("ov.uploaded", { date: formatDate(doc.created_at) ?? "" })}
                 </span>
               </span>
               <StatusBadge status={doc.status} />
@@ -406,7 +403,7 @@ function GettingStarted({ d, onDismiss }: { d: Dashboard; onDismiss?: () => void
         <div>
           <h2 className="text-[15px] font-semibold">{t("overview.getStarted")}</h2>
           <p className="text-xs text-muted-foreground">
-            {steps.filter((s) => s.done).length} of {steps.length} done
+            {t("ov.stepsDone", { n: steps.filter((s) => s.done).length, total: steps.length })}
           </p>
         </div>
         {onDismiss && (

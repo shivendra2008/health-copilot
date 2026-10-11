@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .errors import install_error_handlers
-from .routers import assistant, documents, profile, records
+from .routers import assistant, auth_routes, documents, profile, records
 from .services.ocr import ocr_available
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -37,5 +37,5 @@ def health():
             "ai_model": s.groq_model, "ocr_available": ocr_available()}
 
 
-for r in (documents.router, records.router, profile.router, assistant.router):
+for r in (auth_routes.router, documents.router, records.router, profile.router, assistant.router):
     app.include_router(r)

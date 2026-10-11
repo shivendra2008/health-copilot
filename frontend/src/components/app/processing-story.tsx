@@ -1,15 +1,17 @@
 "use client";
 
 import { Check, Loader2, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 import type { DocumentMeta } from "@/lib/types";
+import { failureText } from "@/lib/doc-text";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
-  { key: "upload", label: "Uploaded securely" },
-  { key: "read", label: "Reading the document" },
-  { key: "extract", label: "Extracting medical information" },
-  { key: "check", label: "Checking every value against the source" },
-  { key: "ready", label: "Ready for your review" },
+  { key: "upload", label: "story.upload" },
+  { key: "read", label: "story.read" },
+  { key: "extract", label: "story.extract" },
+  { key: "check", label: "story.check" },
+  { key: "ready", label: "story.ready" },
 ] as const;
 
 /** Index of the step currently running (STEPS.length when finished). Derived only from real backend status. */
@@ -36,11 +38,14 @@ function failedStep(doc: DocumentMeta): number {
 }
 
 export function ProcessingStory({ doc, compact = false }: { doc: DocumentMeta; compact?: boolean }) {
+  const { t, lang } = useI18n();
+  // The server narrates steps in English; other languages show the translated step label only.
+  const detail = doc.status === "failed" ? failureText(doc) : lang === "en" ? doc.status_detail : null;
   const failed = doc.status === "failed";
   const cur = failed ? failedStep(doc) : currentStep(doc);
 
   return (
-    <ol className={cn("space-y-0", compact ? "mt-3" : "")} aria-label="Processing progress">
+    <ol className={cn("space-y-0", compact ? "mt-3" : "")} aria-label={t("story.progress")}>
       {STEPS.map((s, i) => {
         const done = i < cur || (!failed && cur === STEPS.length);
         const active = i === cur && !failed;
@@ -63,10 +68,10 @@ export function ProcessingStory({ doc, compact = false }: { doc: DocumentMeta; c
               {done ? <Check className="size-3.5" /> : active ? <Loader2 className="size-3.5 animate-spin" /> : err ? <X className="size-3.5" /> : i + 1}
             </span>
             <div className="min-w-0 pt-0.5">
-              <p className={cn("text-sm", done || active || err ? "font-medium text-foreground" : "text-muted-foreground")}>{s.label}</p>
-              {(active || err) && doc.status_detail && (
+              <p className={cn("text-sm", done || active || err ? "font-medium text-foreground" : "text-muted-foreground")}>{t(s.label)}</p>
+              {(active || err) && detail && (
                 <p className={cn("mt-0.5 text-xs", err ? "text-danger" : "text-muted-foreground")} aria-live="polite">
-                  {doc.status_detail}
+                  {detail}
                   {active && "…"}
                 </p>
               )}

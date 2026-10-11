@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { useDocumentPoll } from "@/hooks/use-document-poll";
 import { api, ApiError, errorMessage, uploadWithProgress } from "@/lib/api";
 import { fileSize } from "@/lib/format";
-import { useI18n } from "@/lib/i18n";
+import { tr, useI18n } from "@/lib/i18n";
 import type { DocumentMeta } from "@/lib/types";
 
 const MAX_MB = 10;
@@ -31,9 +31,9 @@ interface Item {
 
 function clientValidate(f: File): string | null {
   const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
-  if (!ACCEPT[ext]) return "Unsupported file type. Use PDF, JPG, JPEG or PNG.";
-  if (f.size === 0) return "This file is empty.";
-  if (f.size > MAX_MB * 1024 * 1024) return `File is larger than ${MAX_MB} MB.`;
+  if (!ACCEPT[ext]) return tr("up.badType");
+  if (f.size === 0) return tr("up.empty");
+  if (f.size > MAX_MB * 1024 * 1024) return tr("up.tooBig", { mb: MAX_MB });
   return null;
 }
 
@@ -47,10 +47,10 @@ function UploadRow({ item, onRemove, autoOpen }: { item: Item; onRemove: () => v
   useEffect(() => {
     if (!autoOpen || opened.current || doc?.status !== "needs_review" || item.duplicate) return;
     opened.current = true;
-    toast.success("Ready for review", { description: "Check the extracted values against your document." });
+    toast.success(t("up.ready"), { description: t("up.readyBody") });
     const id = setTimeout(() => router.push(`/records/${doc.id}/review`), 900);
     return () => clearTimeout(id);
-  }, [autoOpen, doc, item.duplicate, router]);
+  }, [autoOpen, doc, item.duplicate, router, t]);
   const [retrying, setRetrying] = useState(false);
   const isImage = item.file.type.startsWith("image/");
 
@@ -79,8 +79,8 @@ function UploadRow({ item, onRemove, autoOpen }: { item: Item; onRemove: () => v
               <p className="truncate text-sm font-medium">{item.file.name}</p>
               <p className="text-xs text-muted-foreground">
                 {fileSize(item.file.size)}
-                {doc?.page_count ? ` · ${doc.page_count} page${doc.page_count > 1 ? "s" : ""}` : ""}
-                {doc?.text_method ? ` · ${doc.text_method === "native" ? "digital text" : doc.text_method === "ocr" ? "OCR" : "digital + OCR"}` : ""}
+                {doc?.page_count ? ` · ${t("up.pages", { n: doc.page_count })}` : ""}
+                {doc?.text_method ? ` · ${doc.text_method === "native" ? t("up.digital") : doc.text_method === "ocr" ? "OCR" : t("up.digitalOcr")}` : ""}
               </p>
             </div>
             {doc ? <StatusBadge status={doc.status} /> : item.phase === "error" ? null : <Loader2 className="size-4 animate-spin text-muted-foreground" />}
@@ -88,8 +88,8 @@ function UploadRow({ item, onRemove, autoOpen }: { item: Item; onRemove: () => v
 
           {item.phase === "uploading" && (
             <div className="mt-3">
-              <Progress value={item.progress} aria-label="Upload progress" className="h-1.5" />
-              <p className="mt-1 text-xs text-muted-foreground">Uploading… {item.progress}%</p>
+              <Progress value={item.progress} aria-label={t("up.progress")} className="h-1.5" />
+              <p className="mt-1 text-xs text-muted-foreground">{t("up.uploading", { n: item.progress })}</p>
             </div>
           )}
           {item.phase === "error" && (
@@ -97,7 +97,7 @@ function UploadRow({ item, onRemove, autoOpen }: { item: Item; onRemove: () => v
               <p role="alert" className="flex items-center gap-1.5 text-sm text-danger">
                 <AlertCircle className="size-4" /> {item.error}
               </p>
-              <Button variant="ghost" size="icon-sm" aria-label="Remove" onClick={onRemove}>
+              <Button variant="ghost" size="icon-sm" aria-label={t("up.remove")} onClick={onRemove}>
                 <X />
               </Button>
             </div>
@@ -105,7 +105,7 @@ function UploadRow({ item, onRemove, autoOpen }: { item: Item; onRemove: () => v
           {doc && (
             <>
               {item.duplicate && (
-                <p className="mt-2 text-xs text-muted-foreground">This exact file was uploaded before — showing the existing record.</p>
+                <p className="mt-2 text-xs text-muted-foreground">{t("up.dupNote")}</p>
               )}
               {doc.status !== "confirmed" && (
                 <div className="neu-inset mt-4 p-4">
@@ -163,13 +163,13 @@ export default function UploadPage() {
             (p) => update(localId, { progress: p }),
           );
           update(localId, { phase: "uploaded", docId: body.document.id, duplicate: body.duplicate });
-          if (body.duplicate) toast.info("Duplicate file detected", { description: "Linked to your existing record." });
+          if (body.duplicate) toast.info(t("up.dupToast"), { description: t("up.dupToastBody") });
         } catch (e) {
           update(localId, { phase: "error", error: e instanceof ApiError ? e.message : errorMessage(e) });
         }
       });
     },
-    [lang],
+    [lang, t],
   );
 
   return (
@@ -208,7 +208,7 @@ export default function UploadPage() {
             e.target.value = "";
           }}
         />
-        <p className="mt-4 text-xs text-muted-foreground">PDF · JPG · PNG — max {MAX_MB} MB, 30 pages</p>
+        <p className="mt-4 text-xs text-muted-foreground">{t("up.limits", { mb: MAX_MB })}</p>
       </div>
 
       {items.length > 0 && (
@@ -227,13 +227,13 @@ export default function UploadPage() {
         </section>
       )}
       <section className="mt-10">
-        <h2 className="mb-4 px-1 text-base font-semibold tracking-tight">How it works</h2>
+        <h2 className="mb-4 px-1 text-base font-semibold tracking-tight">{t("up.how")}</h2>
         <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { icon: ShieldCheck, title: "Stored privately", body: "Your file is checked and saved in private storage only you can access." },
-            { icon: ScanText, title: "Text is read", body: "Digital PDFs are read directly. Scans and photos go through OCR." },
-            { icon: Sparkles, title: "Values extracted", body: "AI copies values exactly as written, then software checks each against the source." },
-            { icon: ClipboardCheck, title: "You confirm", body: "Nothing joins your record until you review and confirm it." },
+            { icon: ShieldCheck, title: t("up.s1.title"), body: t("up.s1.body") },
+            { icon: ScanText, title: t("up.s2.title"), body: t("up.s2.body") },
+            { icon: Sparkles, title: t("up.s3.title"), body: t("up.s3.body") },
+            { icon: ClipboardCheck, title: t("up.s4.title"), body: t("up.s4.body") },
           ].map(({ icon: Icon, title, body }, i) => (
             <li key={title} className="surface p-5">
               <div className="mb-4 flex items-center justify-between">

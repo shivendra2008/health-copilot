@@ -60,21 +60,26 @@ def replace_records(db, user_id: str, doc: dict, extraction_id: str, data: Extra
         "category": data.document_type, "title": DOC_TYPE_LABEL[data.document_type]
         + (f" — {data.facility}" if data.facility else ""),
         "description": _doc_event_desc(len(obs), out_of_range, len(meds), len(conds)),
+        "meta": {"kind": "document", "doc_type": data.document_type, "facility": data.facility,
+                 "lab_results": len(obs), "out_of_range": out_of_range, "medications": len(meds),
+                 "conditions": len(conds)},
     }]
     if obs:
         cats = sorted({o["category"] for o in obs if o["category"]})
         events.append({"user_id": user_id, "document_id": doc_id, "event_date": eff_date,
                        "event_type": "lab_result", "category": ", ".join(cats)[:200] or None,
                        "title": f"{len(obs)} lab result{'s' if len(obs) != 1 else ''} recorded",
-                       "description": ", ".join(o["test_name"] for o in obs[:8]) + ("…" if len(obs) > 8 else "")})
+                       "description": ", ".join(o["test_name"] for o in obs[:8]) + ("…" if len(obs) > 8 else ""),
+                       "meta": {"kind": "lab_result", "count": len(obs)}})
     for m in meds:
         events.append({"user_id": user_id, "document_id": doc_id, "event_date": eff_date,
                        "event_type": "medication", "category": "medication", "title": f"Prescribed: {m['name']}",
-                       "description": " · ".join(x for x in (m["strength"], m["dosage"], m["frequency"], m["duration"]) if x) or None})
+                       "description": " · ".join(x for x in (m["strength"], m["dosage"], m["frequency"], m["duration"]) if x) or None,
+                       "meta": {"kind": "medication", "name": m["name"]}})
     for c in conds:
         events.append({"user_id": user_id, "document_id": doc_id, "event_date": eff_date,
                        "event_type": "diagnosis", "category": "condition", "title": c["description"],
-                       "description": "As documented in the source record"})
+                       "description": "As documented in the source record", "meta": {"kind": "diagnosis"}})
     for p in data.procedures:
         d = parse_iso_date(p.date)
         events.append({"user_id": user_id, "document_id": doc_id, "event_date": (d.isoformat() if d else eff_date),
@@ -83,7 +88,7 @@ def replace_records(db, user_id: str, doc: dict, extraction_id: str, data: Extra
         d = parse_iso_date(f.date)
         events.append({"user_id": user_id, "document_id": doc_id, "event_date": (d.isoformat() if d else eff_date),
                        "event_type": "follow_up", "category": "follow_up", "title": "Follow-up",
-                       "description": f.instruction})
+                       "description": f.instruction, "meta": {"kind": "follow_up"}})
 
     if obs:
         db.table("observations").insert(obs).execute()
@@ -91,7 +96,12 @@ def replace_records(db, user_id: str, doc: dict, extraction_id: str, data: Extra
         db.table("medications").insert(meds).execute()
     if conds:
         db.table("conditions").insert(conds).execute()
-    db.table("timeline_events").insert(events).execute()
+    try:
+        db.table("timeline_events").insert(events).execute()
+    except Exception as e:  # noqa: BLE001 — database without migration 0002: store without meta
+        if "meta" not in str(e):
+            raise
+        db.table("timeline_events").insert([{k: v for k, v in ev.items() if k != "meta"} for ev in events]).execute()
     return {"observations": len(obs), "medications": len(meds), "conditions": len(conds), "timeline_events": len(events)}
 
 

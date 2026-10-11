@@ -44,9 +44,10 @@ export function InterpBadge({ value, compact = false }: { value: Interpretation;
 }
 
 export function CorrectedBadge() {
+  const { t } = useI18n();
   return (
-    <span className={cn(pill, "bg-secondary text-secondary-foreground")} title="Edited by you; original AI value preserved">
-      <Pencil className="size-3" /> Edited
+    <span className={cn(pill, "bg-secondary text-secondary-foreground")} title={t("badge.editedHint")}>
+      <Pencil className="size-3" /> {t("badge.edited")}
     </span>
   );
 }

@@ -16,72 +16,72 @@ import { Label } from "@/components/ui/label";
 import { useDocumentPoll } from "@/hooks/use-document-poll";
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { isProcessing } from "@/lib/format";
-import { useI18n } from "@/lib/i18n";
+import { hasKey, useI18n, type TKey } from "@/lib/i18n";
 import type { DocType, Extraction, ExtractionData, Issue } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type SectionKey = "lab_results" | "medications" | "conditions" | "procedures" | "follow_ups" | "findings";
-type Field = { name: string; label: string; required?: boolean; wide?: boolean; placeholder?: string };
+type Field = { name: string; label: TKey; required?: boolean; wide?: boolean; placeholder?: string };
 
-const SECTIONS: { key: SectionKey; title: string; fields: Field[]; blank: Record<string, unknown> }[] = [
+const SECTIONS: { key: SectionKey; title: TKey; fields: Field[]; blank: Record<string, unknown> }[] = [
   {
     key: "lab_results",
-    title: "Lab results",
+    title: "rev.sec.labs",
     fields: [
-      { name: "test_name", label: "Test", required: true, wide: true },
-      { name: "value", label: "Value", required: true },
-      { name: "unit", label: "Unit" },
-      { name: "reference_range", label: "Reference range" },
-      { name: "flag", label: "Flag on report" },
-      { name: "category", label: "Panel", wide: true },
+      { name: "test_name", label: "rev.f.test", required: true, wide: true },
+      { name: "value", label: "rev.f.value", required: true },
+      { name: "unit", label: "rev.f.unit" },
+      { name: "reference_range", label: "rev.f.range" },
+      { name: "flag", label: "rev.f.flag" },
+      { name: "category", label: "rev.f.panel", wide: true },
     ],
     blank: { test_name: "", value: "", unit: null, reference_range: null, flag: null, category: null, source_text: "", confidence: "high" },
   },
   {
     key: "medications",
-    title: "Medications (as documented)",
+    title: "rev.sec.meds",
     fields: [
-      { name: "name", label: "Medicine", required: true, wide: true },
-      { name: "strength", label: "Strength" },
-      { name: "dosage", label: "Dosage" },
-      { name: "frequency", label: "Frequency" },
-      { name: "duration", label: "Duration" },
-      { name: "route", label: "Route" },
-      { name: "instructions", label: "Instructions", wide: true },
+      { name: "name", label: "rev.f.medicine", required: true, wide: true },
+      { name: "strength", label: "rev.f.strength" },
+      { name: "dosage", label: "rev.f.dosage" },
+      { name: "frequency", label: "rev.f.frequency" },
+      { name: "duration", label: "rev.f.duration" },
+      { name: "route", label: "rev.f.route" },
+      { name: "instructions", label: "rev.f.instructions", wide: true },
     ],
     blank: { name: "", strength: null, dosage: null, frequency: null, duration: null, route: null, instructions: null, source_text: "", confidence: "high" },
   },
   {
     key: "conditions",
-    title: "Diagnoses stated in the document",
+    title: "rev.sec.conditions",
     fields: [
-      { name: "description", label: "Diagnosis", required: true, wide: true },
-      { name: "status", label: "Status" },
+      { name: "description", label: "rev.f.diagnosis", required: true, wide: true },
+      { name: "status", label: "rev.f.status" },
     ],
     blank: { description: "", status: null, source_text: "", confidence: "high" },
   },
   {
     key: "procedures",
-    title: "Procedures",
+    title: "rev.sec.procedures",
     fields: [
-      { name: "name", label: "Procedure", required: true, wide: true },
-      { name: "date", label: "Date (YYYY-MM-DD)", placeholder: "2026-03-12" },
+      { name: "name", label: "rev.f.procedure", required: true, wide: true },
+      { name: "date", label: "rev.f.date", placeholder: "2026-03-12" },
     ],
     blank: { name: "", date: null, source_text: "", confidence: "high" },
   },
   {
     key: "follow_ups",
-    title: "Follow-up instructions",
+    title: "rev.sec.followups",
     fields: [
-      { name: "instruction", label: "Instruction", required: true, wide: true },
-      { name: "date", label: "Date (YYYY-MM-DD)", placeholder: "2026-04-12" },
+      { name: "instruction", label: "rev.f.instruction", required: true, wide: true },
+      { name: "date", label: "rev.f.date", placeholder: "2026-04-12" },
     ],
     blank: { instruction: "", date: null, source_text: "" },
   },
   {
     key: "findings",
-    title: "Clinical observations",
-    fields: [{ name: "text", label: "Observation", required: true, wide: true }],
+    title: "rev.sec.findings",
+    fields: [{ name: "text", label: "rev.f.observation", required: true, wide: true }],
     blank: { text: "", source_text: "", confidence: "high" },
   },
 ];
@@ -89,6 +89,8 @@ const SECTIONS: { key: SectionKey; title: string; fields: Field[]; blank: Record
 const DOC_TYPES: DocType[] = ["lab_report", "prescription", "diagnostic_report", "discharge_summary", "other"];
 
 function IssueLine({ issue }: { issue: Issue }) {
+  const { t } = useI18n();
+  const key = `issue.${issue.code}`;
   const Icon = issue.severity === "error" ? AlertCircle : issue.severity === "warning" ? AlertTriangle : Info;
   return (
     <p
@@ -98,7 +100,7 @@ function IssueLine({ issue }: { issue: Issue }) {
       )}
     >
       <Icon className="mt-px size-3.5 shrink-0" />
-      {issue.message}
+      {hasKey(key) ? t(key) : issue.message}
     </p>
   );
 }
@@ -161,7 +163,7 @@ export default function ReviewPage() {
         <>
           <Button variant="ghost" asChild>
             <Link href={`/records/${id}`}>
-              <ArrowLeft /> Report
+              <ArrowLeft /> {t("rev.back")}
             </Link>
           </Button>
           <StatusBadge status={doc.status} />
@@ -245,7 +247,7 @@ export default function ReviewPage() {
   async function onSave() {
     setSaving("save");
     const r = await save();
-    if (r) toast.success("Corrections saved", { description: r.issues.some((i) => i.severity === "error") ? "Some items still need fixing." : undefined });
+    if (r) toast.success(t("rev.saved"), { description: r.issues.some((i) => i.severity === "error") ? t("rev.stillFix") : undefined });
     setSaving(null);
   }
 
@@ -259,12 +261,12 @@ export default function ReviewPage() {
         current = r;
       }
       if (current.issues.some((i) => i.severity === "error")) {
-        toast.error("Fix the highlighted errors before confirming.");
+        toast.error(t("error.unresolved_issues"));
         return;
       }
       const res = await api<{ records: Record<string, number> }>(`/api/v1/documents/${id}/confirm`, { method: "POST" });
-      toast.success("Saved to your health record", {
-        description: `${res.records.observations} results, ${res.records.medications} medications, ${res.records.timeline_events} timeline events`,
+      toast.success(t("rev.confirmed"), {
+        description: t("rev.confirmedBody", { r: res.records.observations, m: res.records.medications, e: res.records.timeline_events }),
       });
       await mutateDoc();
       router.push(`/records/${id}`);
@@ -289,15 +291,15 @@ export default function ReviewPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold">
-                    {doneCount} of {allItems.length} items checked
+                    {t("rev.checked", { n: doneCount, total: allItems.length })}
                   </p>
-                  <p className="text-xs text-muted-foreground">Click an item to see where it came from in the document, then mark it as right or fix it.</p>
+                  <p className="text-xs text-muted-foreground">{t("rev.checkHint")}</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={markClean}>
-                  <Check /> Mark all unflagged as checked
+                  <Check /> {t("rev.markAll")}
                 </Button>
               </div>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={allItems.length} aria-valuenow={doneCount} aria-label="Items checked">
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={allItems.length} aria-valuenow={doneCount} aria-label={t("rev.itemsChecked")}>
                 <div className="h-full rounded-full bg-brand-600 transition-[width]" style={{ width: `${(doneCount / allItems.length) * 100}%` }} />
               </div>
             </div>
@@ -305,8 +307,8 @@ export default function ReviewPage() {
           {(docIssues.length > 0 || doc.text_method) && (
             <div className="surface space-y-2 p-4">
               <p className="text-xs text-muted-foreground">
-                Read using {doc.text_method === "native" ? "digital PDF text" : doc.text_method === "ocr" ? "OCR" : "digital text + OCR"}
-                {doc.ocr_confidence != null && ` · OCR confidence ${Math.round(doc.ocr_confidence * 100)}%`} · extraction v{ex.version}
+                {t("rev.readUsing", { how: doc.text_method === "native" ? t("source.native") : doc.text_method === "ocr" ? "OCR" : t("source.mixed") })}
+                {doc.ocr_confidence != null && ` · ${t("rev.ocrConf", { n: Math.round(doc.ocr_confidence * 100) })}`} · {t("rev.version", { n: ex.version })}
                 {ex.model ? ` · ${ex.model}` : ""}
               </p>
               {docIssues.map((i, n) => (
@@ -316,10 +318,10 @@ export default function ReviewPage() {
           )}
 
           <section className="surface p-4">
-            <h2 className="mb-3 text-sm font-semibold">Document details</h2>
+            <h2 className="mb-3 text-sm font-semibold">{t("rev.docDetails")}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <Label htmlFor="doc_type">Type</Label>
+                <Label htmlFor="doc_type">{t("rev.type")}</Label>
                 <select
                   id="doc_type"
                   value={data.document_type}
@@ -334,7 +336,7 @@ export default function ReviewPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="doc_date">Document date</Label>
+                <Label htmlFor="doc_date">{t("rev.docDate")}</Label>
                 <Input
                   id="doc_date"
                   type="date"
@@ -345,11 +347,11 @@ export default function ReviewPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="facility">Facility / laboratory</Label>
+                <Label htmlFor="facility">{t("rev.facility")}</Label>
                 <Input id="facility" value={data.facility ?? ""} onChange={(e) => set({ facility: nullIfBlank(e.target.value) })} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="clinician">Clinician</Label>
+                <Label htmlFor="clinician">{t("rev.clinician")}</Label>
                 <Input id="clinician" value={data.clinician ?? ""} onChange={(e) => set({ clinician: nullIfBlank(e.target.value) })} />
               </div>
             </div>
@@ -365,7 +367,7 @@ export default function ReviewPage() {
                   onClick={() => addItem(s.key)}
                   className="neu-sm neu-press flex w-full items-center gap-2 rounded-xl! px-4 py-3 text-sm text-muted-foreground hover:text-foreground"
                 >
-                  <Plus className="size-4" /> Add {s.title.toLowerCase()}
+                  <Plus className="size-4" /> {t("rev.addTo", { what: t(s.title) })}
                 </button>
               );
             }
@@ -373,14 +375,14 @@ export default function ReviewPage() {
               <section key={s.key} className="surface">
                 <div className="flex items-center justify-between border-b px-4 py-3">
                   <h2 className="text-sm font-semibold">
-                    {s.title} <span className="font-normal text-muted-foreground">({items.length})</span>
+                    {t(s.title)} <span className="font-normal text-muted-foreground">({items.length})</span>
                   </h2>
                   <Button variant="outline" size="sm" onClick={() => addItem(s.key)}>
                     <Plus /> {t("review.addRow")}
                   </Button>
                 </div>
                 {items.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-sm text-muted-foreground">None found in this document.</p>
+                  <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t("rev.noneFound")}</p>
                 ) : (
                   <ul className="divide-y">
                     {items.map((it, idx) => {
@@ -413,7 +415,7 @@ export default function ReviewPage() {
                               return (
                                 <div key={f.name} className={cn("min-w-0 space-y-1", f.wide && "col-span-2")}>
                                   <Label htmlFor={fid} className="text-xs text-muted-foreground">
-                                    {f.label}
+                                    {t(f.label)}
                                     {f.required && <span aria-hidden="true"> *</span>}
                                   </Label>
                                   <Input
@@ -426,8 +428,8 @@ export default function ReviewPage() {
                                     className={cn("h-8 bg-card shadow-none border-border", changed && "border-brand-600/60")}
                                   />
                                   {changed && (
-                                    <p className="truncate text-[11px] text-muted-foreground" title={`Original extraction: ${origVal || "(empty)"}`}>
-                                      Originally: <span className="line-through">{origVal || "(empty)"}</span>
+                                    <p className="truncate text-[11px] text-muted-foreground" title={t("rev.origTitle", { v: origVal || t("rev.empty") })}>
+                                      {t("rev.originally")} <span className="line-through">{origVal || t("rev.empty")}</span>
                                     </p>
                                   )}
                                 </div>
@@ -442,7 +444,7 @@ export default function ReviewPage() {
                                 select();
                               }}
                               className="flex w-full items-start gap-1.5 rounded-md bg-muted px-2 py-1 text-left font-mono text-[11px] leading-relaxed text-muted-foreground hover:bg-brand-50 hover:text-brand-700"
-                              title="Show this in the document text"
+                              title={t("rev.showInDoc")}
                             >
                               <LocateFixed className="mt-0.5 size-3 shrink-0" />
                               <span className="min-w-0">“{source}”</span>
@@ -453,11 +455,11 @@ export default function ReviewPage() {
                               {issues.map((i, n) => (
                                 <IssueLine key={n} issue={i} />
                               ))}
-                              {it.origin === "user" && <p className="text-xs text-muted-foreground">Added by you</p>}
+                              {it.origin === "user" && <p className="text-xs text-muted-foreground">{t("rev.addedByYou")}</p>}
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               {s.key === "lab_results" && key && derivedByKey.get(key) && !dirty && <InterpBadge value={derivedByKey.get(key)!} />}
-                              {s.key !== "lab_results" && it.confidence === "low" && <span className="text-xs text-warn">Low confidence</span>}
+                              {s.key !== "lab_results" && it.confidence === "low" && <span className="text-xs text-warn">{t("rev.lowConf")}</span>}
                               {key && it.origin !== "user" && (
                                 <Button
                                   variant={isChecked ? "secondary" : "outline"}
@@ -472,13 +474,13 @@ export default function ReviewPage() {
                                   }}
                                   className={cn(isChecked && "text-ok")}
                                 >
-                                  <Check /> {isChecked ? "Checked" : "Looks right"}
+                                  <Check /> {isChecked ? t("rev.checkedBtn") : t("rev.looksRight")}
                                 </Button>
                               )}
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                aria-label="Remove row"
+                                aria-label={t("rev.removeRow")}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   removeItem(s.key, idx);
@@ -504,14 +506,14 @@ export default function ReviewPage() {
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
           <p className="text-xs text-muted-foreground" aria-live="polite">
             {dirty
-              ? "Unsaved changes"
+              ? t("rev.unsaved")
               : blocking.length > 0
-                ? `${blocking.length} error(s) must be fixed before confirming`
+                ? t("rev.errorsLeft", { n: blocking.length })
                 : ex.status === "confirmed"
-                  ? "Already confirmed. Re-confirm to update your record."
-                  : `${ex.issues.filter((i) => i.severity === "warning").length} item(s) flagged for a closer look`}
-            {missingRequired && " · Fill in required fields"}
-            {allItems.length > 0 && ` · ${doneCount}/${allItems.length} checked`}
+                  ? t("rev.alreadyConfirmed")
+                  : t("rev.flagged", { n: ex.issues.filter((i) => i.severity === "warning").length })}
+            {missingRequired && ` · ${t("rev.fillRequired")}`}
+            {allItems.length > 0 && ` · ${t("rev.checkedShort", { n: doneCount, total: allItems.length })}`}
           </p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onSave} disabled={!dirty || saving !== null || missingRequired}>

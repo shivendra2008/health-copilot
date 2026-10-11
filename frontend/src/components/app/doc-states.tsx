@@ -6,14 +6,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { api, errorMessage } from "@/lib/api";
+import { failureText } from "@/lib/doc-text";
 import { useI18n } from "@/lib/i18n";
 import type { DocumentMeta } from "@/lib/types";
 
 export function ProcessingPanel({ doc }: { doc: DocumentMeta }) {
+  const { t } = useI18n();
   return (
     <div className="surface mx-auto max-w-md p-6" role="status">
-      <p className="mb-1 text-sm font-semibold">Analysing your document</p>
-      <p className="mb-5 text-xs text-muted-foreground">This usually takes 20–60 seconds. You can leave this page; we&apos;ll keep working.</p>
+      <p className="mb-1 text-sm font-semibold">{t("doc.analysing")}</p>
+      <p className="mb-5 text-xs text-muted-foreground">{t("doc.analysingHint")}</p>
       <ProcessingStory doc={doc} />
     </div>
   );
@@ -35,9 +37,9 @@ export function FailedPanel({ doc, onRetried }: { doc: DocumentMeta; onRetried: 
   }
   return (
     <div role="alert" className="flex flex-col items-center rounded-xl border border-danger/20 bg-danger-bg/60 px-6 py-12 text-center">
-      <p className="text-sm font-medium">Processing failed</p>
-      <p className="mt-1 max-w-md text-sm text-muted-foreground">{doc.status_detail ?? "Something went wrong."}</p>
-      <p className="mt-1 text-xs text-muted-foreground">Your original file is safe. Attempts so far: {doc.attempts}</p>
+      <p className="text-sm font-medium">{t("doc.failed")}</p>
+      <p className="mt-1 max-w-md text-sm text-muted-foreground">{failureText(doc)}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("doc.failedSafe", { n: doc.attempts })}</p>
       <Button className="mt-4" onClick={retry} disabled={busy}>
         {busy ? <Loader2 className="animate-spin" /> : <RotateCcw />} {t("common.retry")}
       </Button>

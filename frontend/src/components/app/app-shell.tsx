@@ -14,12 +14,14 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
 import { LANG_LABELS, useI18n, type TKey } from "@/lib/i18n";
-import type { Lang } from "@/lib/types";
+import type { Lang, Profile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { SetupNotice } from "./setup-notice";
@@ -37,7 +39,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { t } = useI18n();
   return (
-    <nav aria-label="Main" className="flex flex-col gap-0.5">
+    <nav aria-label={t("nav.main")} className="flex flex-col gap-0.5">
       {NAV.map(({ href, key, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
@@ -73,7 +75,7 @@ function MobileTabBar() {
   const { t } = useI18n();
   return (
     <nav
-      aria-label="Main"
+      aria-label={t("nav.main")}
       className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 bg-[var(--neu-surface)]/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_18px_rgba(140,158,148,0.22)] backdrop-blur lg:hidden"
     >
       {TABS.map(({ href, key, icon: Icon }) => {
@@ -106,12 +108,17 @@ function SidebarFooter() {
   return (
     <div className="space-y-3 border-t border-[var(--neu-edge)] pt-4">
       <label className="block px-1 text-xs text-muted-foreground">
-        <span className="sr-only">Language</span>
+        <span className="sr-only">{t("common.language")}</span>
         <select
           value={lang}
-          onChange={(e) => setLang(e.target.value as Lang)}
+          onChange={(e) => {
+            const l = e.target.value as Lang;
+            setLang(l);
+            // Remember the choice on the account so it follows the user to other devices.
+            api("/api/v1/profile", { method: "PATCH", json: { preferred_language: l } }).catch(() => {});
+          }}
           className="h-9 w-full field px-2 text-sm text-foreground"
-          aria-label="Language"
+          aria-label={t("common.language")}
         >
           {(Object.keys(LANG_LABELS) as Lang[]).map((l) => (
             <option key={l} value={l}>
@@ -125,7 +132,7 @@ function SidebarFooter() {
           {(user?.user_metadata?.full_name || user?.email || "?").slice(0, 1).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{user?.user_metadata?.full_name || "You"}</p>
+          <p className="truncate text-sm font-medium">{user?.user_metadata?.full_name || t("nav.you")}</p>
           <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
         </div>
         <Button
@@ -147,10 +154,21 @@ function SidebarFooter() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const { t } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  // Account preferences: language follows the profile; new accounts finish onboarding first.
+  const { data: profile } = useSWR<Profile>(user ? "/api/v1/profile" : null, {
+    revalidateOnFocus: false,
+    onSuccess: (p) => {
+      if (p.preferred_language && p.preferred_language !== lang) setLang(p.preferred_language);
+    },
+  });
+
+  useEffect(() => {
+    if (profile?.onboarding_completed === false) router.replace("/welcome");
+  }, [profile, router]);
   const hideFab = pathname.startsWith("/upload") || pathname.endsWith("/review") || pathname.startsWith("/assistant");
 
   useEffect(() => {
@@ -187,7 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-[var(--neu-surface)]/95 px-4 shadow-[0_6px_16px_rgba(140,158,148,0.2)] backdrop-blur lg:hidden">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Open navigation">
+            <Button variant="ghost" size="icon" aria-label={t("nav.openMenu")}>
               <Menu />
             </Button>
           </SheetTrigger>

@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { api, errorMessage } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 export function DeleteDocumentButton({
   id,
@@ -27,13 +28,14 @@ export function DeleteDocumentButton({
   variant?: "icon" | "button";
 }) {
   const [open, setOpen] = useState(false);
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
 
   async function del() {
     setBusy(true);
     try {
       await api(`/api/v1/documents/${id}`, { method: "DELETE" });
-      toast.success("Document deleted");
+      toast.success(t("doc.deleted"));
       setOpen(false);
       onDeleted();
     } catch (e) {
@@ -47,28 +49,26 @@ export function DeleteDocumentButton({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {variant === "icon" ? (
-          <Button variant="ghost" size="icon-sm" aria-label={`Delete ${name}`} title="Delete">
+          <Button variant="ghost" size="icon-sm" aria-label={t("doc.deleteNamed", { name })} title={t("common.delete")}>
             <Trash2 />
           </Button>
         ) : (
           <Button variant="destructive" size="sm">
-            <Trash2 /> Delete
+            <Trash2 /> {t("common.delete")}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete this document?</DialogTitle>
-          <DialogDescription>
-            “{name}” and every value, medication, diagnosis and timeline event extracted from it will be permanently removed. This cannot be undone.
-          </DialogDescription>
+          <DialogTitle>{t("doc.deleteTitle")}</DialogTitle>
+          <DialogDescription>{t("doc.deleteBody", { name })}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button variant="destructive" onClick={del} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : <Trash2 />} Delete permanently
+            {busy ? <Loader2 className="animate-spin" /> : <Trash2 />} {t("doc.deleteForever")}
           </Button>
         </DialogFooter>
       </DialogContent>

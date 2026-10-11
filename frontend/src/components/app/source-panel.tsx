@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { DocumentViewer } from "./document-viewer";
 import { Segmented } from "./segmented";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface DocText {
@@ -43,6 +44,7 @@ export function SourcePanel({
   highlightLabel?: string | null;
   className?: string;
 }) {
+  const { t } = useI18n();
   const [tab, setTab] = useState<"original" | "text">("original");
   const [lastHighlight, setLastHighlight] = useState<string | null>(null);
   const { data, error } = useSWR<DocText>(`/api/v1/documents/${id}/text`, { revalidateOnFocus: false });
@@ -64,19 +66,19 @@ export function SourcePanel({
     <div className={cn("surface flex flex-col overflow-hidden", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
         <Segmented
-          label="Source view"
+          label={t("source.view")}
           size="sm"
           value={tab}
           onChange={setTab}
           options={[
-            { value: "original", label: <span className="inline-flex items-center gap-1.5"><FileText className="size-3.5" />Original</span> },
-            { value: "text", label: <span className="inline-flex items-center gap-1.5"><ScanText className="size-3.5" />Text we read</span> },
+            { value: "original", label: <span className="inline-flex items-center gap-1.5"><FileText className="size-3.5" />{t("source.original")}</span> },
+            { value: "text", label: <span className="inline-flex items-center gap-1.5"><ScanText className="size-3.5" />{t("source.text")}</span> },
           ]}
         />
         {data && (
           <span className="text-[11px] text-muted-foreground">
-            {data.method === "native" ? "Digital PDF text" : data.method === "ocr" ? "Read with OCR" : "Digital text + OCR"}
-            {data.ocr_confidence != null && ` · ${Math.round(data.ocr_confidence * 100)}% confidence`}
+            {data.method === "native" ? t("source.native") : data.method === "ocr" ? t("source.ocr") : t("source.mixed")}
+            {data.ocr_confidence != null && ` · ${t("source.confidence", { n: Math.round(data.ocr_confidence * 100) })}`}
           </span>
         )}
       </div>
@@ -88,20 +90,18 @@ export function SourcePanel({
           {highlight && (
             <div className="sticky top-0 z-10 border-b border-[var(--neu-edge)] bg-[var(--neu-surface)]/95 px-4 py-2 text-xs backdrop-blur">
               {range ? (
-                <span className="text-foreground">
-                  Showing where <span className="font-medium">{highlightLabel ?? "this item"}</span> came from
-                </span>
+                <span className="text-foreground">{t("source.showing", { label: highlightLabel ?? "" })}</span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-warn">
-                  <SearchX className="size-3.5" /> This exact text wasn&apos;t found in the document. Check the value against the original.
+                  <SearchX className="size-3.5" /> {t("source.notFound")}
                 </span>
               )}
             </div>
           )}
           {error ? (
-            <p className="p-6 text-sm text-muted-foreground">The document text isn&apos;t available.</p>
+            <p className="p-6 text-sm text-muted-foreground">{t("source.unavailable")}</p>
           ) : !data ? (
-            <p className="p-6 text-sm text-muted-foreground">Loading text…</p>
+            <p className="p-6 text-sm text-muted-foreground">{t("source.loading")}</p>
           ) : (
             <pre className="px-4 py-3 font-mono text-[12px] leading-relaxed whitespace-pre-wrap text-foreground/80">
               {range ? (

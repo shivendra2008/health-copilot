@@ -5,6 +5,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { api, errorMessage } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 interface Signed {
   url: string;
@@ -21,6 +22,7 @@ export function DocumentViewer({ id, className = "", bare = false }: { id: strin
     refreshInterval: (d) => (d ? Math.max(30, d.expires_in - 20) * 1000 : 0),
   });
   const [openError, setOpenError] = useState<string | null>(null);
+  const { t } = useI18n();
   const error = loadError ? errorMessage(loadError) : openError;
 
   async function openNewTab() {
@@ -34,9 +36,9 @@ export function DocumentViewer({ id, className = "", bare = false }: { id: strin
   return (
     <div className={`${bare ? "" : "surface"} flex flex-col overflow-hidden ${className}`}>
       <div className={`${bare ? "hidden" : "flex"} items-center justify-between border-b px-3 py-2`}>
-        <span className="truncate text-xs font-medium text-muted-foreground">{signed?.file_name ?? "Original document"}</span>
+        <span className="truncate text-xs font-medium text-muted-foreground">{signed?.file_name ?? t("doc.original")}</span>
         <Button variant="ghost" size="xs" onClick={openNewTab}>
-          <ExternalLink /> Open
+          <ExternalLink /> {t("doc.open")}
         </Button>
       </div>
       <div className="relative min-h-[420px] flex-1 bg-muted/40">
@@ -45,7 +47,7 @@ export function DocumentViewer({ id, className = "", bare = false }: { id: strin
             <FileWarning className="size-5" />
             {error}
             <Button variant="outline" size="sm" onClick={() => { setOpenError(null); mutate(); }}>
-              Retry
+              {t("common.retry")}
             </Button>
           </div>
         ) : !signed ? (
@@ -53,10 +55,10 @@ export function DocumentViewer({ id, className = "", bare = false }: { id: strin
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </div>
         ) : signed.mime_type === "application/pdf" ? (
-          <iframe src={`${signed.url}#view=FitH`} title="Original document" className="absolute inset-0 h-full w-full" />
+          <iframe src={`${signed.url}#view=FitH`} title={t("doc.original")} className="absolute inset-0 h-full w-full" />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={signed.url} alt="Original document" className="mx-auto max-h-full w-auto object-contain" />
+          <img src={signed.url} alt={t("doc.original")} className="mx-auto max-h-full w-auto object-contain" />
         )}
       </div>
     </div>

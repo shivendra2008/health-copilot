@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDate } from "@/lib/format";
-import { useI18n } from "@/lib/i18n";
+import { tr, useI18n } from "@/lib/i18n";
 import type { DocType, Page, TimelineEvent } from "@/lib/types";
 
 const LIMIT = 30;
@@ -21,15 +21,46 @@ const ICONS: Record<TimelineEvent["event_type"], React.ComponentType<{ className
   procedure: Syringe,
   follow_up: CalendarClock,
 };
-const TYPE_LABEL: Record<TimelineEvent["event_type"], string> = {
-  document: "Documents",
-  lab_result: "Lab results",
-  medication: "Medications",
-  diagnosis: "Diagnoses",
-  procedure: "Procedures",
-  follow_up: "Follow-ups",
-};
+const EVENT_TYPES = ["document", "lab_result", "medication", "diagnosis", "procedure", "follow_up"] as const;
 const DOC_TYPES: DocType[] = ["lab_report", "prescription", "diagnostic_report", "discharge_summary", "other"];
+
+/**
+ * Event text in the user's language. Structured `meta` (newer events) is translated directly;
+ * older events fall back to recognising the English patterns the server used to write.
+ * Medical names and dosages are always shown exactly as recorded.
+ */
+function eventText(e: TimelineEvent): { title: string; description: string | null } {
+  const m = (e.meta ?? {}) as Record<string, unknown>;
+  const n = (v: unknown) => Number(v ?? 0);
+  switch (e.event_type) {
+    case "document": {
+      const docType = (m.doc_type as DocType | undefined) ?? e.documents?.doc_type;
+      const facility = (m.facility as string | undefined) ?? e.title.split(" — ")[1];
+      const title = docType ? `${tr(`doctype.${docType}`)}${facility ? ` — ${facility}` : ""}` : e.title;
+      if (!e.meta) return { title, description: e.description };
+      const parts = [
+        n(m.lab_results) ? tr("tl.nLabs", { n: n(m.lab_results) }) + (n(m.out_of_range) ? ` (${tr("tl.nOutside", { n: n(m.out_of_range) })})` : "") : "",
+        n(m.medications) ? tr("tl.nMeds", { n: n(m.medications) }) : "",
+        n(m.conditions) ? tr("tl.nConds", { n: n(m.conditions) }) : "",
+      ].filter(Boolean);
+      return { title, description: parts.join(", ") || null };
+    }
+    case "lab_result": {
+      const count = m.count ?? e.title.match(/^(\d+)/)?.[1];
+      return { title: count ? tr("tl.labsRecorded", { n: n(count) }) : e.title, description: e.description };
+    }
+    case "medication": {
+      const name = (m.name as string | undefined) ?? e.title.replace(/^Prescribed:\s*/, "");
+      return { title: tr("tl.prescribed", { name }), description: e.description };
+    }
+    case "diagnosis":
+      return { title: e.title, description: tr("tl.asDocumented") };
+    case "follow_up":
+      return { title: tr("tl.followUp"), description: e.description };
+    default:
+      return { title: e.title, description: e.description };
+  }
+}
 
 export default function TimelinePage() {
   const { t } = useI18n();
@@ -75,16 +106,16 @@ export default function TimelinePage() {
           <Input id="to" type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className="h-9" />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="etype" className="text-xs">Event</Label>
+          <Label htmlFor="etype" className="text-xs">{t("tl.event")}</Label>
           <select id="etype" value={eventType} onChange={(e) => setEventType(e.target.value)} className="h-9 w-full field px-2 text-sm">
             <option value="">{t("common.all")}</option>
-            {Object.entries(TYPE_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+            {EVENT_TYPES.map((k) => (
+              <option key={k} value={k}>{t(`tl.type.${k}`)}</option>
             ))}
           </select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="dtype" className="text-xs">Document type</Label>
+          <Label htmlFor="dtype" className="text-xs">{t("tl.docType")}</Label>
           <select id="dtype" value={docType} onChange={(e) => setDocType(e.target.value)} className="h-9 w-full field px-2 text-sm">
             <option value="">{t("common.all")}</option>
             {DOC_TYPES.map((d) => (
@@ -93,8 +124,8 @@ export default function TimelinePage() {
           </select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="cat" className="text-xs">Test category</Label>
-          <Input id="cat" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Lipid" className="h-9" />
+          <Label htmlFor="cat" className="text-xs">{t("tl.category")}</Label>
+          <Input id="cat" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={t("tl.categoryPh")} className="h-9" />
         </div>
         {filtered && (
           <div className="sm:col-span-2 lg:col-span-5">
@@ -112,8 +143,8 @@ export default function TimelinePage() {
       ) : events.length === 0 ? (
         <EmptyState
           icon={<Activity />}
-          title={filtered ? "No events match these filters" : "Your timeline is empty"}
-          body={filtered ? undefined : "Confirmed documents appear here by the date printed on them."}
+          title={filtered ? t("tl.noMatch") : t("tl.empty")}
+          body={filtered ? undefined : t("tl.emptyBody")}
           action={!filtered && (<Button asChild><Link href="/upload"><Upload /> {t("common.upload")}</Link></Button>)}
         />
       ) : (
@@ -133,13 +164,13 @@ export default function TimelinePage() {
                       </span>
                       <div className="surface p-4">
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                          <p className="text-sm font-medium">{e.title}</p>
+                          <p className="text-sm font-medium">{eventText(e).title}</p>
                           <time className="text-xs text-muted-foreground" dateTime={e.event_date}>{formatDate(e.event_date)}</time>
                         </div>
-                        {e.description && <p className="mt-0.5 text-sm text-muted-foreground">{e.description}</p>}
+                        {eventText(e).description && <p className="mt-0.5 text-sm text-muted-foreground">{eventText(e).description}</p>}
                         {e.document_id && (
                           <Link href={`/records/${e.document_id}`} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline">
-                            <FileText className="size-3" /> {e.documents?.file_name ?? "View source document"}
+                            <FileText className="size-3" /> {e.documents?.file_name ?? t("tl.viewSource")}
                           </Link>
                         )}
                       </div>
@@ -151,7 +182,7 @@ export default function TimelinePage() {
           ))}
           {events.length < total && (
             <div className="text-center">
-              <Button variant="outline" onClick={() => setSize(size + 1)}>Load more ({total - events.length} remaining)</Button>
+              <Button variant="outline" onClick={() => setSize(size + 1)}>{t("tl.loadMore", { n: total - events.length })}</Button>
             </div>
           )}
         </div>

@@ -13,6 +13,7 @@ import { EmptyState, ErrorState, ListSkeleton, PageHeader, Pager } from "@/compo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, errorMessage } from "@/lib/api";
+import { failureText } from "@/lib/doc-text";
 import { fileSize, formatDate, isProcessing } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import type { DocType, DocumentMeta, Page } from "@/lib/types";
@@ -50,7 +51,7 @@ export default function RecordsPage() {
     setRetrying(id);
     try {
       await api(`/api/v1/documents/${id}/process`, { method: "POST", json: { language: lang } });
-      toast.success("Processing restarted");
+      toast.success(t("rec.restarted"));
       mutate();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -74,7 +75,7 @@ export default function RecordsPage() {
       />
       <div className="mb-4 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <Segmented
-          label="Filter by status"
+          label={t("rec.filterStatus")}
           value={status || "all"}
           onChange={(v) => {
             setStatus(v === "all" ? "" : v);
@@ -84,7 +85,7 @@ export default function RecordsPage() {
             { value: "all", label: t("common.all") },
             { value: "pending_review", label: t("status.needs_review") },
             { value: "confirmed", label: t("status.confirmed") },
-            { value: "processing", label: "Processing" },
+            { value: "processing", label: t("rec.processing") },
             { value: "failed", label: t("status.failed") },
           ]}
         />
@@ -95,17 +96,17 @@ export default function RecordsPage() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by file name or facility"
+            placeholder={t("rec.search")}
             className="h-10 pl-9"
             aria-label={t("common.search")}
           />
         </div>
 
-        <select aria-label="Document type" value={docType} onChange={(e) => {
+        <select aria-label={t("rec.docType")} value={docType} onChange={(e) => {
             setDocType(e.target.value);
             setOffset(0);
           }} className="h-10 field px-3 text-sm">
-          <option value="">All types</option>
+          <option value="">{t("rec.allTypes")}</option>
           {DOC_TYPES.map((d) => (
             <option key={d} value={d}>
               {t(`doctype.${d}`)}
@@ -121,8 +122,8 @@ export default function RecordsPage() {
       ) : data.items.length === 0 ? (
         <EmptyState
           icon={<ClipboardList />}
-          title={filtered ? "No matching documents" : t("records.empty")}
-          body={filtered ? "Try a different search or filter." : t("overview.emptyBody")}
+          title={filtered ? t("rec.noMatch") : t("records.empty")}
+          body={filtered ? t("rec.tryDifferent") : t("overview.emptyBody")}
           action={
             filtered ? (
               <Button
@@ -161,12 +162,12 @@ export default function RecordsPage() {
                       {t(`doctype.${d.doc_type}`)} · {formatDate(d.document_date) ?? t("common.unknownDate")}
                       {d.source_facility ? ` · ${d.file_name}` : ""} · {fileSize(d.size_bytes)}
                     </span>
-                    {d.status === "failed" && d.status_detail && <span className="mt-1 block text-xs text-danger">{d.status_detail}</span>}
+                    {d.status === "failed" && <span className="mt-1 block text-xs text-danger">{failureText(d)}</span>}
                   </Link>
                   <StatusBadge status={d.status} />
                   <div className="flex items-center gap-1.5">
                     {d.status === "failed" && (
-                      <Button variant="outline" size="icon-sm" aria-label="Retry processing" title={t("common.retry")} onClick={() => retry(d.id)} disabled={retrying === d.id}>
+                      <Button variant="outline" size="icon-sm" aria-label={t("rec.retry")} title={t("common.retry")} onClick={() => retry(d.id)} disabled={retrying === d.id}>
                         {retrying === d.id ? <Loader2 className="animate-spin" /> : <RotateCcw />}
                       </Button>
                     )}

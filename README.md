@@ -41,7 +41,7 @@ Each processing run creates a new extraction **version**, so history is preserve
 ## 1. Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com) (the free tier works).
-2. **SQL Editor → New query**: paste [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and run it.
+2. **SQL Editor → New query**: paste [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and run it, then do the same with [`0002_onboarding.sql`](supabase/migrations/0002_onboarding.sql) (onboarding profile fields and structured timeline metadata).
    It creates all tables, RLS policies, the signup → profile trigger and the private `medical-documents` bucket.
    (With the Supabase CLI: `supabase link` then `supabase db push`.)
 3. **Authentication → Providers → Email**: keep it enabled. For quick local testing you can turn off **Confirm email**. If you keep it on, add `http://localhost:3000` (and your Vercel URL) under **Authentication → URL Configuration → Redirect URLs**.
@@ -122,6 +122,7 @@ Interactive docs are at `http://localhost:8000/docs` (disabled when `APP_ENV=pro
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/v1/health` | Config/OCR status (no auth) |
+| POST | `/api/v1/auth/signup` | Create an account without email verification (no auth; rate-limited per IP). The backend creates the user already confirmed via the Supabase admin API |
 | POST | `/api/v1/documents` | Upload (multipart `file`, `?language=en\|hi\|mr`). 201 when new; 200 with `duplicate: true` if the file already exists |
 | GET | `/api/v1/documents` | List (`status`, `doc_type`, `q`, pagination) |
 | GET | `/api/v1/documents/{id}` | Metadata + processing status |
@@ -137,7 +138,7 @@ Interactive docs are at `http://localhost:8000/docs` (disabled when `APP_ENV=pro
 | GET | `/api/v1/timeline` | `date_from`, `date_to`, `event_type`, `doc_type`, `category` |
 | GET | `/api/v1/trends` | Tests with confirmed values; `?test=` returns series **grouped by unit** |
 | GET | `/api/v1/dashboard` | Counts, recent documents, out-of-range findings, activity |
-| GET/PATCH | `/api/v1/profile` | Health profile + preferred language |
+| GET/PATCH | `/api/v1/profile` | Health profile, preferred language, age/height/weight, onboarding status |
 | POST | `/api/v1/profile/mock-abha` | Generate a clearly fake `DEMO-91-…` ID |
 | GET | `/api/v1/fhir/bundle` | FHIR R4-shaped export of confirmed records |
 | POST | `/api/v1/assistant/chat` | Grounded Q&A with citations |

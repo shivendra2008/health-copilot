@@ -35,9 +35,9 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
       <p className="mt-0.5 tabular-nums">
         <span className="text-sm font-semibold">{p.value_text}</span> {p.unit}
       </p>
-      <p className="text-muted-foreground">Printed range: {p.reference_range_text ?? "—"}</p>
+      <p className="text-muted-foreground">{t("lab.printedRange", { r: p.reference_range_text ?? "—" })}</p>
       <p className="mt-1">{t(`interp.${p.interpretation}`)}</p>
-      {p.is_user_corrected && <p className="text-muted-foreground">Value edited by you</p>}
+      {p.is_user_corrected && <p className="text-muted-foreground">{t("lab.editedValue")}</p>}
     </div>
   );
 }
@@ -50,6 +50,7 @@ function Dot(props: { cx?: number; cy?: number; payload?: TrendPoint }) {
 }
 
 function TrendChart({ unit, points }: { unit: string; points: TrendPoint[] }) {
+  const { t } = useI18n();
   // Only shade a reference band when every point shares the same printed range.
   const sameRange = points.every((p) => p.ref_low === points[0].ref_low && p.ref_high === points[0].ref_high);
   const lo = sameRange ? points[0].ref_low : null;
@@ -99,15 +100,15 @@ function TrendChart({ unit, points }: { unit: string; points: TrendPoint[] }) {
         </ResponsiveContainer>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span>Unit: {unit}</span>
+        <span>{t("lab.unit", { u: unit })}</span>
         {(lo != null || hi != null) && (
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-3 w-4 rounded-sm bg-brand-600/10" /> Printed reference range
           </span>
         )}
-        {!sameRange && <span>Reference ranges differ between reports — see table.</span>}
+        {!sameRange && <span>{t("lab.rangesDiffer")}</span>}
         <span className="flex items-center gap-1.5">
-          <span className="inline-block size-2.5 rounded-full" style={{ background: OUT }} /> Outside printed range
+          <span className="inline-block size-2.5 rounded-full" style={{ background: OUT }} /> {t("lab.outsideDot")}
         </span>
       </div>
     </div>
@@ -115,6 +116,7 @@ function TrendChart({ unit, points }: { unit: string; points: TrendPoint[] }) {
 }
 
 function TrendDetailView({ test }: { test: string }) {
+  const { t } = useI18n();
   const { data, error, isLoading, mutate } = useSWR<TrendDetail>(`/api/v1/trends?test=${encodeURIComponent(test)}`);
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (isLoading || !data) return <ListSkeleton rows={3} />;
@@ -122,28 +124,28 @@ function TrendDetailView({ test }: { test: string }) {
     <div className="space-y-5">
       <h2 className="text-lg font-semibold">{data.display_name}</h2>
       {data.series.length === 0 && (
-        <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">No numeric values with units to chart for this test.</p>
+        <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">{t("lab.noNumeric")}</p>
       )}
       {data.series.map((s) => (
         <section key={s.unit} className="surface p-4">
           {data.series.length > 1 && (
             <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Values recorded in {s.unit} ({s.points.length})
+              {t("lab.valuesIn", { u: s.unit, n: s.points.length })}
             </p>
           )}
           {s.points.length >= 2 ? (
             <TrendChart unit={s.unit} points={s.points} />
           ) : (
-            <p className="mb-3 text-sm text-muted-foreground">Only one value in {s.unit} so far — a trend appears after a second confirmed result.</p>
+            <p className="mb-3 text-sm text-muted-foreground">{t("lab.oneValue", { u: s.unit })}</p>
           )}
           <table className="mt-4 w-full text-sm">
             <caption className="sr-only">Values for {data.display_name} in {s.unit}</caption>
             <thead className="text-left text-xs text-muted-foreground">
               <tr className="border-b">
-                <th className="py-2 font-medium">Date</th>
-                <th className="py-2 font-medium">Value</th>
-                <th className="hidden py-2 font-medium sm:table-cell">Printed range</th>
-                <th className="py-2 font-medium">Status</th>
+                <th className="py-2 font-medium">{t("lab.date")}</th>
+                <th className="py-2 font-medium">{t("lab.value")}</th>
+                <th className="hidden py-2 font-medium sm:table-cell">{t("lab.rangeBand")}</th>
+                <th className="py-2 font-medium">{t("lab.status")}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -169,18 +171,18 @@ function TrendDetailView({ test }: { test: string }) {
       ))}
       {data.series.length > 1 && (
         <p className="flex items-start gap-2 rounded-lg bg-warn-bg p-3 text-xs text-warn">
-          <Info className="mt-px size-3.5 shrink-0" /> This test was reported in different units. They are shown separately and never converted or compared directly.
+          <Info className="mt-px size-3.5 shrink-0" /> {t("lab.diffUnits")}
         </p>
       )}
       {data.excluded.length > 0 && (
         <section className="surface p-4">
-          <h3 className="text-sm font-semibold">Not charted ({data.excluded.length})</h3>
+          <h3 className="text-sm font-semibold">{t("lab.notCharted", { n: data.excluded.length })}</h3>
           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
             {data.excluded.map((e) => (
               <li key={e.id}>
                 {formatDate(e.effective_date)} — {e.value_text} {e.unit ?? ""}{" "}
                 <span className="text-xs">
-                  ({e.reason === "missing_unit" ? "no unit recorded" : e.reason === "comparator_value" ? "value is a limit, e.g. “<0.5”" : "not a number"})
+                  ({e.reason === "missing_unit" ? t("lab.reasonUnit") : e.reason === "comparator_value" ? t("lab.reasonLimit") : t("lab.reasonText")})
                 </span>
               </li>
             ))}
@@ -188,7 +190,7 @@ function TrendDetailView({ test }: { test: string }) {
         </section>
       )}
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
-        <Info className="mt-px size-3.5 shrink-0" /> {data.note}
+        <Info className="mt-px size-3.5 shrink-0" /> {t("lab.trendNote")}
       </p>
     </div>
   );
@@ -217,14 +219,14 @@ function AllResults() {
       <div className="mb-3 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tests" className="h-10 bg-card pl-9" aria-label="Search tests" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("lab.search")} className="h-10 pl-9" aria-label={t("lab.search")} />
         </div>
-        <select aria-label="Range status" value={interp} onChange={(e) => {
+        <select aria-label={t("lab.rangeStatus")} value={interp} onChange={(e) => {
             setInterp(e.target.value);
             setOffset(0);
           }} className="h-10 field px-3 text-sm">
-          <option value="">All statuses</option>
-          <option value="out_of_range">Outside printed range</option>
+          <option value="">{t("lab.allStatuses")}</option>
+          <option value="out_of_range">{t("lab.outsideDot")}</option>
           <option value="within_range">{t("interp.within_range")}</option>
           <option value="unverified">{t("interp.unverified")}</option>
         </select>
@@ -234,18 +236,18 @@ function AllResults() {
       ) : isLoading || !data ? (
         <ListSkeleton />
       ) : data.items.length === 0 ? (
-        <p className="surface p-8 text-center text-sm text-muted-foreground">No results match.</p>
+        <p className="surface p-8 text-center text-sm text-muted-foreground">{t("lab.noResults")}</p>
       ) : (
         <>
           <div className="surface overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2 font-medium">Test</th>
-                  <th className="px-4 py-2 font-medium">Value</th>
-                  <th className="hidden px-4 py-2 font-medium md:table-cell">Printed range</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="hidden px-4 py-2 font-medium sm:table-cell">Date</th>
+                  <th className="px-4 py-2 font-medium">{t("lab.test")}</th>
+                  <th className="px-4 py-2 font-medium">{t("lab.value")}</th>
+                  <th className="hidden px-4 py-2 font-medium md:table-cell">{t("lab.rangeBand")}</th>
+                  <th className="px-4 py-2 font-medium">{t("lab.status")}</th>
+                  <th className="hidden px-4 py-2 font-medium sm:table-cell">{t("lab.date")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -278,6 +280,7 @@ function AllResults() {
 }
 
 function TestTile({ test, onOpen }: { test: TrendTest; onOpen: () => void }) {
+  const { t } = useI18n();
   const l = test.latest;
   const out = l.interpretation === "above_range" || l.interpretation === "below_range";
   return (
@@ -300,15 +303,15 @@ function TestTile({ test, onOpen }: { test: TrendTest; onOpen: () => void }) {
         {l.unit && <span className="ml-1.5 text-xs text-muted-foreground">{l.unit}</span>}
       </p>
       <p className="mt-1.5 text-[11px] text-muted-foreground">
-        Expected {l.reference_range_text ?? "—"} · {formatDate(l.effective_date)}
+        {t("ov.expectedOn", { range: l.reference_range_text ?? "—", date: formatDate(l.effective_date) ?? "" })}
       </p>
       <div className="mt-3">
         <AreaSpark points={test.spark} height={48} />
       </div>
       <RangeBar className="mt-3" value={l.value_num} low={l.ref_low} high={l.ref_high} status={l.interpretation} unit={l.unit} showLabels={false} />
       <p className="mt-3 text-[11px] text-muted-foreground">
-        {test.count} result{test.count === 1 ? "" : "s"}
-        {test.units.length > 1 && ` · ${test.units.length} units, shown separately`} · View trend →
+        {t("lab.results", { n: test.count })}
+        {test.units.length > 1 && ` · ${t("lab.unitsSeparate", { n: test.units.length })}`} · {t("lab.viewTrend")}
       </p>
     </button>
   );
@@ -355,8 +358,8 @@ function LabResultsContent() {
       ) : data.tests.length === 0 ? (
         <EmptyState
           icon={<FlaskConical />}
-          title="No confirmed lab results yet"
-          body="Upload a lab report and confirm the extracted values. They will appear here and build your trends over time."
+          title={t("lab.emptyTitle")}
+          body={t("lab.emptyBody")}
           action={
             <Button asChild>
               <Link href="/upload">
@@ -369,13 +372,13 @@ function LabResultsContent() {
         <Tabs defaultValue="tests">
           <TabsList className="mb-4">
             <TabsTrigger value="tests">{t("labs.allTests")}</TabsTrigger>
-            <TabsTrigger value="all">All results</TabsTrigger>
+            <TabsTrigger value="all">{t("lab.allResults")}</TabsTrigger>
           </TabsList>
           <TabsContent value="tests">
             <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap items-center gap-2">
                 <Segmented
-                  label="Filter by range status"
+                  label={t("lab.filterRange")}
                   value={status}
                   onChange={setStatus}
                   options={[
@@ -384,7 +387,7 @@ function LabResultsContent() {
                   ]}
                 />
                 {categories.length > 1 && (
-                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by panel">
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("lab.filterPanel")}>
                     {["all", ...categories].map((c) => (
                       <button
                         key={c}
@@ -396,7 +399,7 @@ function LabResultsContent() {
                           category === c ? "neu-inset rounded-full! text-brand-700" : "neu-sm neu-press rounded-full! text-muted-foreground hover:text-foreground",
                         )}
                       >
-                        {c === "all" ? "All panels" : c}
+                        {c === "all" ? t("lab.allPanels") : c}
                       </button>
                     ))}
                   </div>
@@ -404,11 +407,11 @@ function LabResultsContent() {
               </div>
               <div className="relative lg:w-64">
                 <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search tests" className="h-9 pl-9" aria-label="Search tests" />
+                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("lab.search")} className="h-9 pl-9" aria-label={t("lab.search")} />
               </div>
             </div>
             {tests.length === 0 ? (
-              <p className="surface p-8 text-center text-sm text-muted-foreground">No tests match these filters.</p>
+              <p className="surface p-8 text-center text-sm text-muted-foreground">{t("lab.noTests")}</p>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {tests.map((x) => (
@@ -425,7 +428,7 @@ function LabResultsContent() {
 
       <Sheet open={!!open && !!openTest} onOpenChange={(o) => !o && setOpen(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-2xl">
-          <SheetTitle className="sr-only">{openTest?.display_name ?? "Test details"}</SheetTitle>
+          <SheetTitle className="sr-only">{openTest?.display_name ?? t("lab.details")}</SheetTitle>
           <div className="p-5 pt-12 sm:p-6 sm:pt-12">{open && <TrendDetailView test={open} />}</div>
         </SheetContent>
       </Sheet>

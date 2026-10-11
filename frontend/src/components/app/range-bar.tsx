@@ -1,5 +1,6 @@
 "use client";
 
+import { tr } from "@/lib/i18n";
 import type { Interpretation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +50,7 @@ export function RangeBar({
   const bandStart = pct(lo ?? min);
   const bandEnd = pct(hi ?? max);
   const out = status === "above_range" || status === "below_range";
-  const label = `Value ${fmt(v)}${unit ? ` ${unit}` : ""}; printed range ${lo != null ? fmt(lo) : "—"} to ${hi != null ? fmt(hi) : "—"}`;
+  const label = tr("range.aria", { value: `${fmt(v)}${unit ? ` ${unit}` : ""}`, low: lo != null ? fmt(lo) : "—", high: hi != null ? fmt(hi) : "—" });
 
   return (
     <div className={cn("w-full min-w-[96px]", className)} role="img" aria-label={label}>

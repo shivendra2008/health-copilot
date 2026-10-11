@@ -51,8 +51,10 @@ export default function SettingsPage() {
         method: "PATCH",
         json: {
           full_name: form.full_name || null,
-          date_of_birth: form.date_of_birth || null,
           sex: form.sex || null,
+          age_years: form.age_years ?? null,
+          height_cm: form.height_cm ?? null,
+          weight_kg: form.weight_kg ?? null,
           blood_group: form.blood_group || null,
           preferred_language: form.preferred_language,
         },
@@ -60,7 +62,7 @@ export default function SettingsPage() {
       await mutate(updated, { revalidate: false });
       setForm({});
       if (updated.preferred_language) setLang(updated.preferred_language);
-      toast.success("Profile saved");
+      toast.success(t("set.saved"));
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -72,7 +74,7 @@ export default function SettingsPage() {
     setAbhaBusy(true);
     try {
       await mutate(await api<Profile>("/api/v1/profile/mock-abha", { method: "POST" }), { revalidate: false });
-      toast.success("Demo ID generated");
+      toast.success(t("set.abhaDone"));
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -112,24 +114,43 @@ export default function SettingsPage() {
               <Label htmlFor="email">{t("auth.email")}</Label>
               <Input id="email" value={profile.email ?? ""} disabled />
             </div>
+            {(
+              [
+                ["age_years", t("profile.age"), t("profile.years"), 0, 130],
+                ["height_cm", t("profile.height"), t("profile.cm"), 30, 260],
+                ["weight_kg", t("profile.weight"), t("profile.kg"), 1, 400],
+              ] as const
+            ).map(([key, label, unit, min, max]) => (
+              <div key={key} className="space-y-1.5">
+                <Label htmlFor={key}>{label}</Label>
+                <div className="relative">
+                  <Input
+                    id={key}
+                    type="number"
+                    inputMode="decimal"
+                    min={min}
+                    max={max}
+                    value={form[key] ?? ""}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value === "" ? null : Number(e.target.value) })}
+                    className="pr-14"
+                  />
+                  <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-muted-foreground">{unit}</span>
+                </div>
+              </div>
+            ))}
             <div className="space-y-1.5">
-              <Label htmlFor="dob">Date of birth</Label>
-              <Input id="dob" type="date" max={new Date().toISOString().slice(0, 10)} value={form.date_of_birth ?? ""} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="sex">Sex</Label>
+              <Label htmlFor="sex">{t("profile.gender")}</Label>
               <select id="sex" value={form.sex ?? ""} onChange={(e) => setForm({ ...form, sex: (e.target.value || null) as Profile["sex"] })} className="h-9 w-full field px-2 text-sm">
-                <option value="">Prefer not to say</option>
-                <option value="female">Female</option>
-                <option value="male">Male</option>
-                <option value="other">Other</option>
-                <option value="unknown">Unknown</option>
+                <option value="">{t("profile.preferNot")}</option>
+                <option value="female">{t("profile.female")}</option>
+                <option value="male">{t("profile.male")}</option>
+                <option value="other">{t("profile.other")}</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="blood">Blood group</Label>
+              <Label htmlFor="blood">{t("set.blood")}</Label>
               <select id="blood" value={form.blood_group ?? ""} onChange={(e) => setForm({ ...form, blood_group: e.target.value || null })} className="h-9 w-full field px-2 text-sm">
-                <option value="">Not set</option>
+                <option value="">{t("set.notSet")}</option>
                 {BLOOD.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
@@ -138,7 +159,7 @@ export default function SettingsPage() {
               <select id="lang" value={form.preferred_language ?? "en"} onChange={(e) => setForm({ ...form, preferred_language: e.target.value as Lang })} className="h-9 w-full field px-2 text-sm">
                 {(Object.keys(LANG_LABELS) as Lang[]).map((l) => <option key={l} value={l}>{LANG_LABELS[l]}</option>)}
               </select>
-              <p className="text-xs text-muted-foreground">Used for the interface, AI summaries and assistant answers.</p>
+              <p className="text-xs text-muted-foreground">{t("set.langHint")}</p>
             </div>
           </div>
           <Button type="submit" disabled={saving}>
@@ -150,40 +171,40 @@ export default function SettingsPage() {
           <section className="surface space-y-3 p-5">
             <h2 className="flex items-center gap-2 text-sm font-semibold"><Fingerprint className="size-4 text-brand-600" /> {t("settings.abha")}</h2>
             <p className="text-xs text-muted-foreground">
-              A fictional identifier in ABHA format to demonstrate how a health ID could link records. It is not a real ABHA number and this app is not integrated with or certified by ABDM.
+              {t("set.abhaBody")}
             </p>
             {profile.mock_abha_id ? (
               <p className="rounded-lg border border-dashed bg-muted/50 px-3 py-2 font-mono text-sm">{profile.mock_abha_id}</p>
             ) : null}
             <Button variant="outline" size="sm" onClick={genAbha} disabled={abhaBusy}>
-              {abhaBusy && <Loader2 className="animate-spin" />} {profile.mock_abha_id ? "Regenerate demo ID" : "Generate demo ID"}
+              {abhaBusy && <Loader2 className="animate-spin" />} {profile.mock_abha_id ? t("set.abhaRegen") : t("set.abhaGen")}
             </Button>
           </section>
 
           <section className="surface space-y-3 p-5">
             <h2 className="text-sm font-semibold">{t("settings.fhir")}</h2>
             <p className="text-xs text-muted-foreground">
-              Download your confirmed records as a FHIR R4-shaped JSON bundle (Patient, DocumentReference, Observation, MedicationRequest, Condition). Illustrative, not a certified implementation.
+              {t("set.fhirBody")}
             </p>
             <Button variant="outline" size="sm" onClick={exportFhir} disabled={exporting}>
-              {exporting ? <Loader2 className="animate-spin" /> : <Download />} Download bundle
+              {exporting ? <Loader2 className="animate-spin" /> : <Download />} {t("set.download")}
             </Button>
           </section>
 
           <section className="surface space-y-3 p-5">
             <h2 className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="size-4 text-brand-600" /> {t("settings.privacy")}</h2>
             <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-              <li>Files are stored in a private bucket and opened only through links that expire in minutes.</li>
-              <li>Every request is checked against your account; other users can never see your records.</li>
-              <li>Document text is sent to the AI provider (Groq) for extraction. Review its data terms before uploading real records; use fictional documents for demos.</li>
-              <li>Deleting a document permanently removes it and every value extracted from it.</li>
-              <li>Actions are audit-logged without storing document contents.</li>
+              <li>{t("set.p1")}</li>
+              <li>{t("set.p2")}</li>
+              <li>{t("set.p3")}</li>
+              <li>{t("set.p4")}</li>
+              <li>{t("set.p5")}</li>
             </ul>
             {health && (
               <ul className="space-y-1.5 border-t pt-3">
-                <StatusRow ok={health.supabase_configured} label="Database & storage" />
-                <StatusRow ok={health.ai_configured} label="AI extraction" detail={health.ai_model} />
-                <StatusRow ok={health.ocr_available} label="OCR for scanned documents" />
+                <StatusRow ok={health.supabase_configured} label={t("set.dbStatus")} />
+                <StatusRow ok={health.ai_configured} label={t("set.aiStatus")} detail={health.ai_model} />
+                <StatusRow ok={health.ocr_available} label={t("set.ocrStatus")} />
               </ul>
             )}
             <Button

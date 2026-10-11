@@ -16,12 +16,7 @@ import { LANG_LABELS, useI18n } from "@/lib/i18n";
 import type { ChatMessage, Citation, Lang, Page } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const SUGGESTIONS = [
-  "Which of my results were outside the printed reference range?",
-  "What was my most recent haemoglobin value?",
-  "Which medicines are listed on my prescriptions?",
-  "Summarise my latest lab report.",
-];
+const SUGGESTIONS = ["ask.q1", "ask.q5", "ask.q2", "ask.q4"] as const;
 
 interface Conv { id: string; title: string; updated_at: string }
 
@@ -50,7 +45,7 @@ function Sources({ cites }: { cites: Citation[] }) {
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-foreground">{c.label}</span>
                   <span className="block truncate text-muted-foreground">
-                    {[c.detail, formatDate(c.date)].filter(Boolean).join(" · ") || "View source"}
+                    {[c.detail, formatDate(c.date)].filter(Boolean).join(" · ") || t("as.viewSource")}
                   </span>
                 </span>
               </Link>
@@ -152,7 +147,7 @@ function AssistantContent() {
         actions={
           <>
             <Segmented
-              label="Answer language"
+              label={t("as.answerLang")}
               size="sm"
               value={chatLang}
               onChange={setChatLang}
@@ -166,7 +161,7 @@ function AssistantContent() {
       />
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
         <aside className="hidden lg:block">
-          <p className="mb-2 px-1 text-xs font-semibold text-muted-foreground uppercase">History</p>
+          <p className="mb-2 px-1 text-xs font-semibold text-muted-foreground uppercase">{t("as.history")}</p>
           <ul className="space-y-0.5">
             {convs?.items.map((c) => (
               <li key={c.id} className="group flex items-center">
@@ -177,19 +172,19 @@ function AssistantContent() {
                   <span className="block truncate">{c.title}</span>
                   <span className="block text-xs text-muted-foreground">{relativeTime(c.updated_at)}</span>
                 </button>
-                <Button variant="ghost" size="icon-xs" className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label="Delete conversation" onClick={() => remove(c.id)}>
+                <Button variant="ghost" size="icon-xs" className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={t("as.deleteConv")} onClick={() => remove(c.id)}>
                   <Trash2 />
                 </Button>
               </li>
             ))}
-            {convs && convs.items.length === 0 && <li className="px-2 text-sm text-muted-foreground">No conversations yet.</li>}
+            {convs && convs.items.length === 0 && <li className="px-2 text-sm text-muted-foreground">{t("as.noConvs")}</li>}
           </ul>
         </aside>
 
         <section className="surface flex min-h-[70vh] flex-col">
           <div className="flex items-center gap-2 border-b border-[var(--neu-edge)] px-5 py-2.5 text-xs text-muted-foreground">
             <ShieldCheck className="size-3.5 text-ok" />
-            {t("assistant.grounded")}. It cites every answer, says when your records don&apos;t contain it, and never diagnoses.
+            {t("assistant.grounded")}. {t("as.groundedLong")}
           </div>
           <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6" aria-live="polite">
             {loadingConv ? (
@@ -197,12 +192,12 @@ function AssistantContent() {
             ) : messages.length === 0 ? (
               <div className="mx-auto flex max-w-lg flex-col items-center py-10 text-center">
                 <div className="mb-3 flex size-11 items-center justify-center rounded-full bg-brand-50 text-brand-600"><Bot className="size-5" /></div>
-                <p className="text-sm font-medium">Ask about your confirmed records</p>
+                <p className="text-sm font-medium">{t("as.emptyTitle")}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  The assistant only uses values you have reviewed and confirmed, cites its sources, and will tell you when your records don&apos;t contain the answer.
+                  {t("as.emptyBody")}
                 </p>
                 <div className="mt-5 grid w-full gap-2 sm:grid-cols-2">
-                  {SUGGESTIONS.map((s) => (
+                  {SUGGESTIONS.map((k) => t(k)).map((s) => (
                     <button key={s} onClick={() => send(s)} className="neu-sm neu-press rounded-2xl! p-3.5 text-left text-sm">{s}</button>
                   ))}
                 </div>
@@ -230,7 +225,7 @@ function AssistantContent() {
             {sending && (
               <div className="flex justify-start">
                 <div className="neu-sm flex items-center gap-2 rounded-2xl! px-4 py-3 text-sm text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" /> Searching your records…
+                  <Loader2 className="size-4 animate-spin" /> {t("as.searching")}
                 </div>
               </div>
             )}
@@ -244,8 +239,8 @@ function AssistantContent() {
             }}
           >
             {messages.length > 0 && !sending && (
-              <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1" aria-label="Suggested questions">
-                {SUGGESTIONS.map((q) => (
+              <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1" aria-label={t("as.suggested")}>
+                {SUGGESTIONS.map((k) => t(k)).map((q) => (
                   <button
                     key={q}
                     type="button"
@@ -268,7 +263,7 @@ function AssistantContent() {
                   }
                 }}
                 placeholder={t("assistant.placeholder")}
-                aria-label="Message"
+                aria-label={t("as.message")}
                 maxLength={1000}
                 rows={1}
                 className="max-h-40 min-h-11 resize-none"

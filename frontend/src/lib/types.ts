@@ -208,6 +208,7 @@ export interface TimelineEvent {
   category: string | null;
   title: string;
   description: string | null;
+  meta?: Record<string, unknown> | null;
   documents?: { file_name: string; doc_type: DocType } | null;
 }
 
@@ -289,6 +290,10 @@ export interface Profile {
   blood_group: string | null;
   preferred_language: Lang;
   mock_abha_id: string | null;
+  age_years?: number | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  onboarding_completed?: boolean | null;
 }
 
 export interface Citation {

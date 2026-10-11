@@ -12,7 +12,7 @@ interface AuthCtx {
   signOut: () => Promise<void>;
 }
 
-const Ctx = createContext<AuthCtx>({ user: null, session: null, loading: true, signOut: async () => {} });
+export const AuthContext = createContext<AuthCtx>({ user: null, session: null, loading: true, signOut: async () => {} });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -35,8 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ user: session?.user ?? null, session, loading, signOut }}>{children}</Ctx.Provider>
+    <AuthContext.Provider value={{ user: session?.user ?? null, session, loading, signOut }}>{children}</AuthContext.Provider>
   );
 }
 
-export const useAuth = () => useContext(Ctx);
+export const useAuth = () => useContext(AuthContext);

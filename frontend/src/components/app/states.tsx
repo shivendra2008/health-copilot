@@ -47,7 +47,7 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
   return (
     <div role="alert" className={cn("flex flex-col items-center rounded-2xl border border-danger/20 bg-danger-bg/60 px-6 py-8 text-center", className)}>
       <AlertTriangle className="mb-2 size-5 text-danger" />
-      <p className="text-sm font-medium text-foreground">Couldn&apos;t load this</p>
+      <p className="text-sm font-medium text-foreground">{t("state.loadFailed")}</p>
       <p className="mt-1 max-w-md text-sm text-muted-foreground">{errorMessage(error)}</p>
       {onRetry && (
         <Button variant="outline" size="sm" className="mt-4" onClick={onRetry}>
@@ -59,8 +59,9 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
 }
 
 export function ListSkeleton({ rows = 4 }: { rows?: number }) {
+  const { t } = useI18n();
   return (
-    <div className="space-y-2" aria-busy="true" aria-label="Loading">
+    <div className="space-y-2" aria-busy="true" aria-label={t("common.loading")}>
       {Array.from({ length: rows }).map((_, i) => (
         <Skeleton key={i} className="h-16 w-full rounded-2xl bg-muted" />
       ))}
@@ -84,7 +85,7 @@ export function Pager({ total, limit, offset, onChange }: { total: number; limit
   return (
     <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
       <span>
-        {offset + 1}–{Math.min(offset + limit, total)} of {total}
+        {t("state.range", { from: offset + 1, to: Math.min(offset + limit, total), total })}
       </span>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - limit))}>

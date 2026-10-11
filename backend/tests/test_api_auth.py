@@ -106,3 +106,21 @@ def test_groq_wait_parsing():
     assert _wait_seconds(mk({"x-ratelimit-reset-tokens": "47.062s"})) == 47.062
     assert _wait_seconds(mk({"x-ratelimit-reset-tokens": "1m2.5s"})) == 62.5
     assert _wait_seconds(mk({})) is None
+
+
+def test_signup_validation():
+    r = client.post("/api/v1/auth/signup", json={"full_name": "A", "email": "not-an-email", "password": "longenough"})
+    assert r.status_code == 422
+    r = client.post("/api/v1/auth/signup", json={"full_name": "A", "email": "a@b.co", "password": "short"})
+    assert r.status_code == 422
+    r = client.post("/api/v1/auth/signup", json={"full_name": "A", "email": "a@b.co", "password": "longenough", "admin": True})
+    assert r.status_code == 422
+
+
+def test_profile_patch_ranges():
+    from app.schemas.api import ProfilePatch
+    import pydantic
+    ProfilePatch(age_years=34, height_cm=162.5, weight_kg=58, onboarding_completed=True)
+    for bad in ({"age_years": -1}, {"height_cm": 900}, {"weight_kg": 0}):
+        with pytest.raises(pydantic.ValidationError):
+            ProfilePatch(**bad)

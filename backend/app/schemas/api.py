@@ -97,6 +97,11 @@ class ProfileOut(BaseModel):
     blood_group: str | None = None
     preferred_language: Lang = "en"
     mock_abha_id: str | None = None
+    age_years: int | None = None
+    height_cm: float | None = None
+    weight_kg: float | None = None
+    # None means the database predates onboarding (migration 0002 not applied) → treat as done.
+    onboarding_completed: bool | None = None
 
 
 class ProfilePatch(BaseModel):
@@ -106,6 +111,17 @@ class ProfilePatch(BaseModel):
     sex: Literal["female", "male", "other", "unknown"] | None = None
     blood_group: Literal["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] | None = None
     preferred_language: Lang | None = None
+    age_years: int | None = Field(default=None, ge=0, le=130)
+    height_cm: float | None = Field(default=None, ge=30, le=260)
+    weight_kg: float | None = Field(default=None, ge=1, le=400)
+    onboarding_completed: bool | None = None
+
+
+class SignupRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    full_name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=8, max_length=128)
 
 
 class ChatRequest(BaseModel):

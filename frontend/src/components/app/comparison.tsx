@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, CheckCircle2, CircleDashed } from "lucide-react";
-import { useI18n } from "@/lib/i18n";
+import { tr, useI18n } from "@/lib/i18n";
 import type { Interpretation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -14,19 +14,13 @@ const decimals = (n: number | null | undefined) => (n == null ? 0 : (String(n).s
 export function gapText(status: Interpretation, value: number | null, low: number | null, high: number | null, unit?: string | null) {
   if (value == null) return null;
   let gap: number | null = null;
-  let where = "";
-  if (status === "above_range" && high != null) {
-    gap = value - high;
-    where = "above the upper limit";
-  } else if (status === "below_range" && low != null) {
-    gap = low - value;
-    where = "below the lower limit";
-  }
+  if (status === "above_range" && high != null) gap = value - high;
+  else if (status === "below_range" && low != null) gap = low - value;
   if (gap == null || gap <= 0) return null;
   const dp = Math.min(2, Math.max(decimals(value), decimals(low), decimals(high)));
   // "0.2 % above" reads like a relative change; for % units the gap is in percentage points.
-  const u = unit?.trim() === "%" ? " percentage points" : unit ? ` ${unit}` : "";
-  return `${gap.toFixed(dp)}${u} ${where}`;
+  const u = unit?.trim() === "%" ? ` ${tr("compare.points")}` : unit ? ` ${unit}` : "";
+  return tr(status === "above_range" ? "compare.above" : "compare.below", { gap: `${gap.toFixed(dp)}${u}` });
 }
 
 /** Plain status: High / Low / In range / Not compared — always icon + text, never colour alone. */
@@ -75,7 +69,7 @@ export function YoursVsExpected({
       <div className="bg-card px-3 py-2">
         <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{t("compare.expected")}</p>
         <p className={cn("mt-0.5 font-medium tabular-nums", size === "lg" ? "text-lg" : "text-sm", !expected && "text-muted-foreground")}>
-          {expected ?? "Not printed"}
+          {expected ?? t("compare.notPrinted")}
           {expected && unit && <span className="ml-1 text-xs font-normal text-muted-foreground">{unit}</span>}
         </p>
       </div>
