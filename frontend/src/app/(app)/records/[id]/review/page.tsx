@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, Info, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowLeft, Check, CheckCircle2, Info, Loader2, LocateFixed, Plus, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import useSWR from "swr";
 import { InterpBadge, StatusBadge } from "@/components/app/badges";
 import { FailedPanel, ProcessingPanel } from "@/components/app/doc-states";
-import { DocumentViewer } from "@/components/app/document-viewer";
+import { SourcePanel } from "@/components/app/source-panel";
 import { Disclaimer, ErrorState, ListSkeleton, PageHeader } from "@/components/app/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,6 +105,16 @@ function IssueLine({ issue }: { issue: Issue }) {
 
 const nullIfBlank = (v: string) => (v.trim() === "" ? null : v);
 
+// Which items the user has ticked as "looks right" — a per-browser review aid, not part of the record.
+const checkedKey = (extractionId: string) => `hc.checked.${extractionId}`;
+function readChecked(extractionId: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(checkedKey(extractionId)) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
 export default function ReviewPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -114,6 +124,8 @@ export default function ReviewPage() {
   const { data: ex, error: exError, mutate: mutateEx } = useSWR<Extraction>(ready ? `/api/v1/documents/${id}/extraction` : null);
 
   const [draft, setDraft] = useState<ExtractionData | null>(null);
+  const [checkedMap, setCheckedMap] = useState<Record<string, string[]>>({});
+  const [active, setActive] = useState<{ key: string; source: string; label: string } | null>(null);
   const data = draft ?? ex?.data ?? null;
   const dirty = draft !== null;
   const [saving, setSaving] = useState<"save" | "confirm" | null>(null);
@@ -195,6 +207,27 @@ export default function ReviewPage() {
     (data[s.key] as unknown as Record<string, unknown>[]).some((it) => s.fields.some((f) => f.required && !String(it[f.name] ?? "").trim())),
   );
   const blocking = ex.issues.filter((i) => i.severity === "error");
+  const checked = new Set(checkedMap[ex.id] ?? readChecked(ex.id));
+  const setChecked = (keys: Set<string>) => {
+    const arr = [...keys];
+    setCheckedMap((m) => ({ ...m, [ex.id]: arr }));
+    try {
+      localStorage.setItem(checkedKey(ex.id), JSON.stringify(arr));
+    } catch {
+      /* storage unavailable */
+    }
+  };
+  const allItems = SECTIONS.flatMap((sec) =>
+    (data[sec.key] as unknown as Record<string, unknown>[]).map((it) => ({ sec: sec.key, it, key: it.key as string | undefined })),
+  );
+  const isDone = (x: (typeof allItems)[number]) => !x.key || x.it.origin === "user" || (x.key ? checked.has(x.key) : false);
+  const doneCount = allItems.filter(isDone).length;
+  const flaggedPaths = new Set(ex.issues.filter((i) => i.severity !== "info").map((i) => i.path));
+  const markClean = () => {
+    const next = new Set(checked);
+    allItems.forEach((x) => x.key && !flaggedPaths.has(`${x.sec}.${x.key}`) && next.add(x.key));
+    setChecked(next);
+  };
   const docIssues = issuesByPath.get("document") ?? [];
 
   async function save(): Promise<Extraction | null> {
@@ -247,10 +280,28 @@ export default function ReviewPage() {
       {header}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="xl:sticky xl:top-6 xl:h-[calc(100vh-7rem)]">
-          <DocumentViewer id={id} className="h-[60vh] xl:h-full" />
+          <SourcePanel id={id} highlight={active?.source ?? null} highlightLabel={active?.label} className="h-[60vh] xl:h-full" />
         </div>
 
-        <div className="min-w-0 space-y-5 pb-28">
+        <div className="min-w-0 space-y-5 pb-44 lg:pb-28">
+          {allItems.length > 0 && (
+            <div className="surface p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {doneCount} of {allItems.length} items checked
+                  </p>
+                  <p className="text-xs text-muted-foreground">Click an item to see where it came from in the document, then mark it as right or fix it.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={markClean}>
+                  <Check /> Mark all unflagged as checked
+                </Button>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={allItems.length} aria-valuenow={doneCount} aria-label="Items checked">
+                <div className="h-full rounded-full bg-brand-600 transition-[width]" style={{ width: `${(doneCount / allItems.length) * 100}%` }} />
+              </div>
+            </div>
+          )}
           {(docIssues.length > 0 || doc.text_method) && (
             <div className="surface space-y-2 p-4">
               <p className="text-xs text-muted-foreground">
@@ -338,10 +389,20 @@ export default function ReviewPage() {
                       const orig = key ? aiByKey.get(key) : undefined;
                       const hasErr = issues.some((i) => i.severity === "error");
                       const hasWarn = issues.some((i) => i.severity === "warning");
+                      const label = String(it[s.fields[0].name] ?? "");
+                      const source = typeof it.source_text === "string" ? it.source_text : "";
+                      const isActive = !!key && active?.key === key;
+                      const isChecked = !!key && checked.has(key);
+                      const select = () => key && source && setActive({ key, source, label });
                       return (
                         <li
                           key={key ?? `new-${idx}`}
-                          className={cn("space-y-3 px-4 py-4", hasErr ? "bg-danger-bg/40" : hasWarn ? "bg-warn-bg/40" : "")}
+                          onClick={select}
+                          className={cn(
+                            "relative space-y-3 px-4 py-4 transition-colors",
+                            hasErr ? "bg-danger-bg/40" : hasWarn ? "bg-warn-bg/40" : isChecked ? "bg-ok-bg/40" : "",
+                            isActive && "shadow-[inset_3px_0_0_var(--primary)]",
+                          )}
                         >
                           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                             {s.fields.map((f) => {
@@ -373,10 +434,19 @@ export default function ReviewPage() {
                               );
                             })}
                           </div>
-                          {typeof it.source_text === "string" && it.source_text && (
-                            <p className="rounded-md bg-muted px-2 py-1 font-mono text-[11px] leading-relaxed text-muted-foreground">
-                              Source: “{it.source_text}”
-                            </p>
+                          {source && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                select();
+                              }}
+                              className="flex w-full items-start gap-1.5 rounded-md bg-muted px-2 py-1 text-left font-mono text-[11px] leading-relaxed text-muted-foreground hover:bg-brand-50 hover:text-brand-700"
+                              title="Show this in the document text"
+                            >
+                              <LocateFixed className="mt-0.5 size-3 shrink-0" />
+                              <span className="min-w-0">“{source}”</span>
+                            </button>
                           )}
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 space-y-1">
@@ -388,7 +458,32 @@ export default function ReviewPage() {
                             <div className="flex shrink-0 items-center gap-2">
                               {s.key === "lab_results" && key && derivedByKey.get(key) && !dirty && <InterpBadge value={derivedByKey.get(key)!} />}
                               {s.key !== "lab_results" && it.confidence === "low" && <span className="text-xs text-warn">Low confidence</span>}
-                              <Button variant="ghost" size="icon-sm" aria-label="Remove row" onClick={() => removeItem(s.key, idx)}>
+                              {key && it.origin !== "user" && (
+                                <Button
+                                  variant={isChecked ? "secondary" : "outline"}
+                                  size="sm"
+                                  aria-pressed={isChecked}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const next = new Set(checked);
+                                    if (isChecked) next.delete(key);
+                                    else next.add(key);
+                                    setChecked(next);
+                                  }}
+                                  className={cn(isChecked && "text-ok")}
+                                >
+                                  <Check /> {isChecked ? "Checked" : "Looks right"}
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="Remove row"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeItem(s.key, idx);
+                                }}
+                              >
                                 <Trash2 />
                               </Button>
                             </div>
@@ -405,7 +500,7 @@ export default function ReviewPage() {
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-card/95 backdrop-blur lg:left-[248px]">
+      <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-card/95 backdrop-blur lg:bottom-0 lg:left-[248px]">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
           <p className="text-xs text-muted-foreground" aria-live="polite">
             {dirty
@@ -416,6 +511,7 @@ export default function ReviewPage() {
                   ? "Already confirmed. Re-confirm to update your record."
                   : `${ex.issues.filter((i) => i.severity === "warning").length} item(s) flagged for a closer look`}
             {missingRequired && " · Fill in required fields"}
+            {allItems.length > 0 && ` · ${doneCount}/${allItems.length} checked`}
           </p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onSave} disabled={!dirty || saving !== null || missingRequired}>

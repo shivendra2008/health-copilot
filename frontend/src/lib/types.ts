@@ -111,6 +111,9 @@ export interface Derived {
   unit: string | null;
   reference_range: string | null;
   status: Interpretation;
+  value_num: number | null;
+  ref_low: number | null;
+  ref_high: number | null;
 }
 
 export interface Summary {
@@ -216,6 +219,19 @@ export interface TrendTest {
   numeric_count: number;
   units: string[];
   latest_date: string | null;
+  latest: {
+    document_id: string;
+    value_text: string;
+    value_num: number | null;
+    value_comparator: string | null;
+    unit: string | null;
+    reference_range_text: string | null;
+    ref_low: number | null;
+    ref_high: number | null;
+    interpretation: Interpretation;
+    effective_date: string | null;
+  };
+  spark: { date: string; value: number }[];
 }
 
 export interface TrendPoint {
@@ -251,9 +267,16 @@ export interface Dashboard {
     lab_results: number;
     out_of_range: number;
     medications: number;
+    conversations: number;
   };
+  snapshot: TrendTest[];
+  range_breakdown: Record<Interpretation, number>;
+  monthly: { month: string; documents: number; confirmed: number }[];
   recent_documents: Pick<DocumentMeta, "id" | "file_name" | "doc_type" | "status" | "document_date" | "source_facility" | "created_at" | "status_detail">[];
-  attention: Pick<Observation, "id" | "document_id" | "test_name" | "value_text" | "unit" | "reference_range_text" | "interpretation" | "effective_date">[];
+  attention: Pick<
+    Observation,
+    "id" | "document_id" | "test_name" | "value_text" | "value_num" | "unit" | "reference_range_text" | "ref_low" | "ref_high" | "interpretation" | "effective_date"
+  >[];
   activity: { action: string; entity_id: string | null; created_at: string; metadata: Record<string, unknown> }[];
 }
 

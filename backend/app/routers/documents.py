@@ -112,6 +112,16 @@ def get_document_file(doc_id: str, user: CurrentUser = Depends(get_current_user)
     return {"url": url, "expires_in": s.signed_url_ttl_seconds, "mime_type": doc["mime_type"], "file_name": doc["file_name"]}
 
 
+@router.get("/{doc_id}/text")
+def get_document_text(doc_id: str, user: CurrentUser = Depends(get_current_user)):
+    """Text read from the document (native or OCR), used to show where each value came from."""
+    doc = owned_document(get_db(), doc_id, user.id, "id,extracted_text,text_method,ocr_confidence,page_count")
+    if not doc.get("extracted_text"):
+        raise ApiError(404, "no_text", "Text has not been read from this document yet.")
+    return {"text": doc["extracted_text"], "method": doc["text_method"],
+            "ocr_confidence": doc["ocr_confidence"], "page_count": doc["page_count"]}
+
+
 @router.post("/{doc_id}/process", response_model=DocumentOut, status_code=202)
 def process(doc_id: str, bg: BackgroundTasks, body: ProcessRequest | None = None,
             user: CurrentUser = Depends(get_current_user)):

@@ -15,6 +15,8 @@ def derived_comparisons(data: ExtractionData) -> list[dict]:
         out.append({
             "key": it.key, "test_name": it.test_name, "value": it.value, "unit": it.unit,
             "reference_range": it.reference_range, "status": interpret(pv, rng),
+            "value_num": pv.number if pv.comparator is None else None,
+            "ref_low": rng.low if rng else None, "ref_high": rng.high if rng else None,
         })
     return out
 
@@ -32,7 +34,7 @@ def generate_summary(data: ExtractionData, language: str = "en", max_wait: float
     derived = derived_comparisons(data)
     raw, model = chat_json(
         SUMMARY_SYSTEM.format(language=LANG_NAMES.get(language, "English")),
-        summary_user(_compact(data), [{k: v for k, v in d.items() if k != "key"} for d in derived]),
+        summary_user(_compact(data), [{k: v for k, v in d.items() if k not in ("key", "value_num", "ref_low", "ref_high")} for d in derived]),
         "health_summary", LLM_SUMMARY_JSON_SCHEMA, temperature=0.2, max_tokens=2500, max_wait=max_wait,
     )
     summary = LLMSummary.model_validate(raw)

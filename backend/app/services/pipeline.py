@@ -61,7 +61,10 @@ def process_document(doc_id: str, user_id: str, language: str = "en") -> None:
         method, ocr_conf = doc.get("text_method"), doc.get("ocr_confidence")
         ocr_conf = float(ocr_conf) if ocr_conf is not None else None
         if not text:
-            _set(db, doc_id, user_id, status="extracting_text", status_detail="Reading document text")
+            pages = doc.get("page_count") or 1
+            _set(db, doc_id, user_id, status="extracting_text",
+                 status_detail="Reading the image with OCR" if doc["mime_type"].startswith("image/")
+                 else f"Reading {pages} page{'s' if pages != 1 else ''}")
             data = db.storage.from_(s.storage_bucket).download(doc["storage_path"])
             try:
                 ext = extract_text(data, doc["mime_type"])
@@ -76,7 +79,9 @@ def process_document(doc_id: str, user_id: str, language: str = "en") -> None:
                  ocr_confidence=ocr_conf, page_count=ext.page_count)
 
         # 2) structured extraction
-        _set(db, doc_id, user_id, status="analyzing", status_detail="Extracting medical information")
+        how = {"native": "digital text", "ocr": "OCR", "mixed": "digital text and OCR"}.get(method or "", "text")
+        _set(db, doc_id, user_id, status="analyzing",
+             status_detail=f"Read {len(text):,} characters using {how}. Extracting medical information")
         truncated = text[: s.llm_max_input_chars]
         raw, model = chat_json(EXTRACTION_SYSTEM, extraction_user(truncated, doc["file_name"]),
                                "medical_document_extraction", LLM_EXTRACTION_JSON_SCHEMA, max_tokens=6000)
@@ -91,6 +96,13 @@ def process_document(doc_id: str, user_id: str, language: str = "en") -> None:
         if len(text) > s.llm_max_input_chars:
             issues.append({"path": "document", "field": None, "severity": "warning", "code": "text_truncated",
                            "message": "This document is very long; only the first part was analysed."})
+
+        counts = ((len(data.lab_results), "lab result", "lab results"), (len(data.medications), "medicine", "medicines"),
+                  (len(data.conditions), "diagnosis", "diagnoses"))
+        found = [f"{n} {one if n == 1 else many}" for n, one, many in counts if n]
+        flagged = sum(1 for i in issues if i["severity"] != "info")
+        _set(db, doc_id, user_id, status_detail=(f"Found {', '.join(found)}" if found else "No structured data found")
+             + f". Checked against the source ({flagged} to review). Writing a plain-language summary")
 
         # 3) summary (non-fatal)
         summary = None

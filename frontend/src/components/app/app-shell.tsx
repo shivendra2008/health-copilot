@@ -60,6 +60,45 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+const TABS: { href: string; key: TKey; icon: React.ComponentType<{ className?: string }> }[] = [
+  { href: "/overview", key: "nav.overview", icon: LayoutDashboard },
+  { href: "/records", key: "nav.records", icon: ClipboardList },
+  { href: "/lab-results", key: "nav.labsShort", icon: FlaskConical },
+  { href: "/timeline", key: "nav.timelineShort", icon: Activity },
+  { href: "/assistant", key: "nav.assistantShort", icon: MessageSquareText },
+];
+
+function MobileTabBar() {
+  const pathname = usePathname();
+  const { t } = useI18n();
+  return (
+    <nav
+      aria-label="Main"
+      className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+    >
+      {TABS.map(({ href, key, icon: Icon }) => {
+        const active = pathname === href || pathname.startsWith(`${href}/`);
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 text-[10.5px] font-medium text-muted-foreground",
+              active && "text-brand-700",
+            )}
+          >
+            <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active && "bg-brand-50")}>
+              <Icon className="size-[19px]" />
+            </span>
+            <span className="max-w-full truncate px-1">{t(key)}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 function SidebarFooter() {
   const { user, signOut } = useAuth();
   const { t, lang, setLang } = useI18n();
@@ -111,6 +150,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const hideFab = pathname.startsWith("/upload") || pathname.endsWith("/review") || pathname.startsWith("/assistant");
 
   useEffect(() => {
     if (isSupabaseConfigured && !loading && !user) router.replace("/login");
@@ -163,16 +204,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Link href="/overview">
           <Logo />
         </Link>
-        <Button asChild size="icon" aria-label={t("common.upload")}>
-          <Link href="/upload">
-            <Upload />
+        <Button asChild variant="ghost" size="icon" aria-label={t("nav.settings")}>
+          <Link href="/settings">
+            <Settings />
           </Link>
         </Button>
       </header>
 
-      <main id="main" className="min-w-0 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <main id="main" className="min-w-0 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:py-8">
         <div className="mx-auto max-w-6xl">{children}</div>
       </main>
+
+      {!hideFab && (
+        <Button asChild size="icon-lg" className="fixed right-4 bottom-20 z-30 size-12 rounded-full shadow-[0_6px_16px_rgba(29,107,80,0.35)] lg:hidden">
+          <Link href="/upload" aria-label={t("common.upload")}>
+            <Upload className="size-5" />
+          </Link>
+        </Button>
+      )}
+      <MobileTabBar />
     </div>
   );
 }

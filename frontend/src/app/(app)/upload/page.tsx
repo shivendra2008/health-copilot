@@ -2,9 +2,11 @@
 
 import { AlertCircle, ArrowRight, CheckCircle2, FileText, ImageIcon, Loader2, RotateCcw, UploadCloud, X } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/app/badges";
+import { ProcessingStory } from "@/components/app/processing-story";
 import { Disclaimer, PageHeader } from "@/components/app/states";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -35,35 +37,20 @@ function clientValidate(f: File): string | null {
   return null;
 }
 
-const STEPS = [
-  { key: "uploaded", label: "Upload" },
-  { key: "extracting_text", label: "Read text" },
-  { key: "analyzing", label: "Extract data" },
-  { key: "needs_review", label: "Review" },
-];
-
-function Pipeline({ doc }: { doc: DocumentMeta }) {
-  const order = ["uploaded", "extracting_text", "analyzing", "needs_review", "confirmed"];
-  const idx = doc.status === "failed" ? -1 : order.indexOf(doc.status);
-  return (
-    <ol className="mt-3 grid grid-cols-4 gap-1.5" aria-label="Processing steps">
-      {STEPS.map((s, i) => {
-        const done = idx > i || doc.status === "needs_review" || doc.status === "confirmed";
-        const active = idx === i && doc.status !== "needs_review";
-        return (
-          <li key={s.key} className="min-w-0">
-            <div className={`h-1 rounded-full ${done ? "bg-brand-600" : active ? "animate-pulse bg-brand-600/50" : "bg-muted"}`} />
-            <span className={`mt-1 block truncate text-[11px] ${done || active ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function UploadRow({ item, onRemove }: { item: Item; onRemove: () => void }) {
+function UploadRow({ item, onRemove, autoOpen }: { item: Item; onRemove: () => void; autoOpen: boolean }) {
   const { t, lang } = useI18n();
+  const router = useRouter();
   const { data: doc, mutate } = useDocumentPoll(item.docId ?? null);
+  const opened = useRef(false);
+
+  // A single upload goes straight to review when it's ready.
+  useEffect(() => {
+    if (!autoOpen || opened.current || doc?.status !== "needs_review" || item.duplicate) return;
+    opened.current = true;
+    toast.success("Ready for review", { description: "Check the extracted values against your document." });
+    const id = setTimeout(() => router.push(`/records/${doc.id}/review`), 900);
+    return () => clearTimeout(id);
+  }, [autoOpen, doc, item.duplicate, router]);
   const [retrying, setRetrying] = useState(false);
   const isImage = item.file.type.startsWith("image/");
 
@@ -120,9 +107,10 @@ function UploadRow({ item, onRemove }: { item: Item; onRemove: () => void }) {
               {item.duplicate && (
                 <p className="mt-2 text-xs text-muted-foreground">This exact file was uploaded before — showing the existing record.</p>
               )}
-              {doc.status !== "confirmed" && <Pipeline doc={doc} />}
-              {doc.status_detail && doc.status !== "needs_review" && (
-                <p className={`mt-2 text-sm ${doc.status === "failed" ? "text-danger" : "text-muted-foreground"}`}>{doc.status_detail}</p>
+              {doc.status !== "confirmed" && (
+                <div className="mt-4 rounded-lg border bg-background/60 p-4">
+                  <ProcessingStory doc={doc} compact />
+                </div>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
                 {doc.status === "needs_review" && (
@@ -228,7 +216,12 @@ export default function UploadPage() {
           <h2 className="mb-3 text-sm font-semibold">{t("upload.queue")}</h2>
           <ul className="space-y-3">
             {items.map((it) => (
-              <UploadRow key={it.localId} item={it} onRemove={() => setItems((xs) => xs.filter((x) => x.localId !== it.localId))} />
+              <UploadRow
+                key={it.localId}
+                item={it}
+                autoOpen={items.length === 1}
+                onRemove={() => setItems((xs) => xs.filter((x) => x.localId !== it.localId))}
+              />
             ))}
           </ul>
         </section>

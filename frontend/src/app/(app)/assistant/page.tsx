@@ -1,17 +1,19 @@
 "use client";
 
-import { AlertTriangle, Bot, FileText, Loader2, MessageSquarePlus, Send, Trash2 } from "lucide-react";
+import { AlertTriangle, Bot, FileText, FlaskConical, Loader2, MessageSquarePlus, Pill, Send, ShieldCheck, Stethoscope, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { Segmented } from "@/components/app/segmented";
 import { Disclaimer, PageHeader } from "@/components/app/states";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api, errorMessage } from "@/lib/api";
 import { formatDate, relativeTime } from "@/lib/format";
-import { useI18n } from "@/lib/i18n";
-import type { ChatMessage, Citation, Page } from "@/lib/types";
+import { LANG_LABELS, useI18n } from "@/lib/i18n";
+import type { ChatMessage, Citation, Lang, Page } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const SUGGESTIONS = [
@@ -23,36 +25,48 @@ const SUGGESTIONS = [
 
 interface Conv { id: string; title: string; updated_at: string }
 
+const KIND_ICON = { observation: FlaskConical, medication: Pill, condition: Stethoscope, document: FileText } as const;
+
 function Sources({ cites }: { cites: Citation[] }) {
   const { t } = useI18n();
   if (!cites.length) return null;
   return (
-    <div className="mt-3 border-t pt-2">
-      <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("assistant.sources")}</p>
-      <ul className="flex flex-wrap gap-1.5">
-        {cites.map((c) => (
-          <li key={c.ref}>
-            <Link
-              href={c.document_id ? `/records/${c.document_id}` : "#"}
-              className="inline-flex max-w-[260px] items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs hover:bg-muted"
-              title={[c.label, c.detail, formatDate(c.date)].filter(Boolean).join(" · ")}
-            >
-              <FileText className="size-3 shrink-0 text-brand-600" />
-              <span className="truncate">
-                {c.label}
-                {c.detail ? ` — ${c.detail}` : ""}
-                {c.date ? ` (${formatDate(c.date)})` : ""}
-              </span>
-            </Link>
-          </li>
-        ))}
+    <div className="mt-3 border-t pt-3">
+      <p className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+        {t("assistant.sources")} ({cites.length})
+      </p>
+      <ul className="grid gap-1.5 sm:grid-cols-2">
+        {cites.map((c) => {
+          const Icon = KIND_ICON[c.kind] ?? FileText;
+          return (
+            <li key={c.ref}>
+              <Link
+                href={c.document_id ? `/records/${c.document_id}` : "#"}
+                className="flex items-start gap-2 rounded-lg border bg-card px-2.5 py-2 text-xs transition-colors hover:border-brand-600/40 hover:bg-brand-50/50"
+              >
+                <span className="mt-px flex size-6 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600">
+                  <Icon className="size-3.5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-foreground">{c.label}</span>
+                  <span className="block truncate text-muted-foreground">
+                    {[c.detail, formatDate(c.date)].filter(Boolean).join(" · ") || "View source"}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
 }
 
-export default function AssistantPage() {
+function AssistantContent() {
   const { t, lang } = useI18n();
+  const params = useSearchParams();
+  const [chatLang, setChatLang] = useState<Lang>(lang);
+  const autoAsked = useRef(false);
   const [convId, setConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -62,7 +76,20 @@ export default function AssistantPage() {
   const seq = useRef(0);
   const { data: convs, mutate: mutateConvs } = useSWR<Page<Conv>>("/api/v1/assistant/conversations?limit=30");
 
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [messages, sending]);
+  useEffect(() => {
+    // Block body on purpose: newer browsers return a Promise from scrollIntoView, and an effect may only return a cleanup function.
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, sending]);
+
+  // Questions linked from the Overview arrive as ?q= and are asked once.
+  useEffect(() => {
+    const q = params.get("q");
+    if (!q || autoAsked.current) return;
+    autoAsked.current = true;
+    window.history.replaceState(null, "", "/assistant");
+    void send(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   async function open(id: string) {
     setLoadingConv(true);
@@ -100,7 +127,7 @@ export default function AssistantPage() {
     try {
       const res = await api<{ conversation_id: string; message_id: string; answer: string; citations: Citation[]; insufficient_information: boolean }>(
         "/api/v1/assistant/chat",
-        { method: "POST", json: { message: msg, conversation_id: convId, language: lang } },
+        { method: "POST", json: { message: msg, conversation_id: convId, language: chatLang } },
       );
       setConvId(res.conversation_id);
       setMessages((m) => [
@@ -123,9 +150,18 @@ export default function AssistantPage() {
         title={t("assistant.title")}
         subtitle={t("assistant.subtitle")}
         actions={
-          <Button variant="outline" onClick={() => { setConvId(null); setMessages([]); }}>
-            <MessageSquarePlus /> {t("assistant.new")}
-          </Button>
+          <>
+            <Segmented
+              label="Answer language"
+              size="sm"
+              value={chatLang}
+              onChange={setChatLang}
+              options={(Object.keys(LANG_LABELS) as Lang[]).map((l) => ({ value: l, label: LANG_LABELS[l] }))}
+            />
+            <Button variant="outline" onClick={() => { setConvId(null); setMessages([]); }}>
+              <MessageSquarePlus /> {t("assistant.new")}
+            </Button>
+          </>
         }
       />
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
@@ -151,6 +187,10 @@ export default function AssistantPage() {
         </aside>
 
         <section className="surface flex min-h-[70vh] flex-col">
+          <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+            <ShieldCheck className="size-3.5 text-ok" />
+            {t("assistant.grounded")}. It cites every answer, says when your records don&apos;t contain it, and never diagnoses.
+          </div>
           <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6" aria-live="polite">
             {loadingConv ? (
               <div className="flex h-full items-center justify-center"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
@@ -203,6 +243,20 @@ export default function AssistantPage() {
               send(input);
             }}
           >
+            {messages.length > 0 && !sending && (
+              <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1" aria-label="Suggested questions">
+                {SUGGESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => send(q)}
+                    className="shrink-0 rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground hover:border-brand-600/40 hover:text-foreground"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <Textarea
                 value={input}
@@ -228,5 +282,13 @@ export default function AssistantPage() {
         </section>
       </div>
     </>
+  );
+}
+
+export default function AssistantPage() {
+  return (
+    <Suspense fallback={null}>
+      <AssistantContent />
+    </Suspense>
   );
 }

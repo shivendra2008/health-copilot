@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, RotateCcw } from "lucide-react";
+import { ProcessingStory } from "./processing-story";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,12 +10,11 @@ import { useI18n } from "@/lib/i18n";
 import type { DocumentMeta } from "@/lib/types";
 
 export function ProcessingPanel({ doc }: { doc: DocumentMeta }) {
-  const { t } = useI18n();
   return (
-    <div className="surface flex flex-col items-center px-6 py-14 text-center" role="status" aria-live="polite">
-      <Loader2 className="mb-3 size-6 animate-spin text-brand-600" />
-      <p className="text-sm font-medium">{t(`status.${doc.status}`)}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{doc.status_detail ?? "This usually takes under a minute."}</p>
+    <div className="surface mx-auto max-w-md p-6" role="status">
+      <p className="mb-1 text-sm font-semibold">Analysing your document</p>
+      <p className="mb-5 text-xs text-muted-foreground">This usually takes 20–60 seconds. You can leave this page; we&apos;ll keep working.</p>
+      <ProcessingStory doc={doc} />
     </div>
   );
 }

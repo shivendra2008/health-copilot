@@ -2,13 +2,19 @@
 
 import { FlaskConical, Info, Search, Upload } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import useSWR from "swr";
 import { CorrectedBadge, InterpBadge } from "@/components/app/badges";
+import { RangeBar } from "@/components/app/range-bar";
+import { Segmented } from "@/components/app/segmented";
+import { Sparkline } from "@/components/app/sparkline";
 import { Disclaimer, EmptyState, ErrorState, ListSkeleton, PageHeader, Pager } from "@/components/app/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
@@ -270,16 +276,65 @@ function AllResults() {
   );
 }
 
-export default function LabResultsPage() {
-  const { t } = useI18n();
-  const { data, error, isLoading, mutate } = useSWR<{ tests: TrendTest[] }>("/api/v1/trends");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [filter, setFilter] = useState("");
-  const tests = useMemo(
-    () => (data?.tests ?? []).filter((x) => x.display_name.toLowerCase().includes(filter.toLowerCase())),
-    [data, filter],
+function TestTile({ test, onOpen }: { test: TrendTest; onOpen: () => void }) {
+  const l = test.latest;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="surface flex flex-col gap-3 p-4 text-left transition-[border-color,box-shadow] hover:border-brand-600/40 hover:shadow-[0_4px_12px_rgba(16,24,20,0.06)] focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium" title={test.display_name}>
+            {test.display_name}
+          </p>
+          {test.category && <p className="truncate text-[11px] text-muted-foreground">{test.category}</p>}
+        </div>
+        <InterpBadge value={l.interpretation} compact />
+      </div>
+      <div className="flex items-end justify-between gap-2">
+        <p className="leading-none">
+          <span className="text-2xl font-semibold tabular-nums">{l.value_text}</span>
+          {l.unit && <span className="ml-1 text-xs text-muted-foreground">{l.unit}</span>}
+        </p>
+        <Sparkline points={test.spark} />
+      </div>
+      <RangeBar value={l.value_num} low={l.ref_low} high={l.ref_high} status={l.interpretation} unit={l.unit} />
+      <p className="text-[11px] text-muted-foreground">
+        {formatDate(l.effective_date)} · {test.count} result{test.count === 1 ? "" : "s"}
+        {test.units.length > 1 && ` · ${test.units.length} units`}
+      </p>
+    </button>
   );
-  const active = selected ?? data?.tests[0]?.test ?? null;
+}
+
+function LabResultsContent() {
+  const { t } = useI18n();
+  const params = useSearchParams();
+  const { data, error, isLoading, mutate } = useSWR<{ tests: TrendTest[] }>("/api/v1/trends");
+  const [open, setOpen] = useState<string | null>(() => params.get("test"));
+  const [filter, setFilter] = useState("");
+  const [status, setStatus] = useState<"all" | "outside">("all");
+  const [category, setCategory] = useState<string>("all");
+
+  const categories = useMemo(
+    () => [...new Set((data?.tests ?? []).map((x) => x.category).filter((c): c is string => !!c))].sort(),
+    [data],
+  );
+  const tests = useMemo(
+    () =>
+      (data?.tests ?? []).filter(
+        (x) =>
+          !!x.latest &&
+          x.display_name.toLowerCase().includes(filter.toLowerCase()) &&
+          (status === "all" || x.latest.interpretation === "above_range" || x.latest.interpretation === "below_range") &&
+          (category === "all" || x.category === category),
+      ),
+    [data, filter, status, category],
+  );
+  const outsideCount = (data?.tests ?? []).filter((x) => x.latest?.interpretation === "above_range" || x.latest?.interpretation === "below_range").length;
+  const openTest = data?.tests.find((x) => x.test === open);
 
   return (
     <>
@@ -287,7 +342,11 @@ export default function LabResultsPage() {
       {error ? (
         <ErrorState error={error} onRetry={() => mutate()} />
       ) : isLoading || !data ? (
-        <ListSkeleton rows={6} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-xl" />
+          ))}
+        </div>
       ) : data.tests.length === 0 ? (
         <EmptyState
           icon={<FlaskConical />}
@@ -302,51 +361,78 @@ export default function LabResultsPage() {
           }
         />
       ) : (
-        <Tabs defaultValue="trends">
+        <Tabs defaultValue="tests">
           <TabsList className="mb-4">
-            <TabsTrigger value="trends">{t("labs.trend")}</TabsTrigger>
+            <TabsTrigger value="tests">{t("labs.allTests")}</TabsTrigger>
             <TabsTrigger value="all">All results</TabsTrigger>
           </TabsList>
-          <TabsContent value="trends">
-            <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-              <aside className="surface h-fit overflow-hidden">
-                <div className="border-b p-2">
-                  <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter tests" className="h-9" aria-label="Filter tests" />
-                </div>
-                <ul className="max-h-[60vh] overflow-y-auto py-1" role="listbox" aria-label="Tests">
-                  {tests.map((x) => (
-                    <li key={x.test}>
+          <TabsContent value="tests">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <Segmented
+                  label="Filter by range status"
+                  value={status}
+                  onChange={setStatus}
+                  options={[
+                    { value: "all", label: `${t("common.all")} (${data.tests.length})` },
+                    { value: "outside", label: `${t("labs.outside")} (${outsideCount})` },
+                  ]}
+                />
+                {categories.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by panel">
+                    {["all", ...categories].map((c) => (
                       <button
-                        role="option"
-                        aria-selected={active === x.test}
-                        onClick={() => setSelected(x.test)}
+                        key={c}
+                        type="button"
+                        aria-pressed={category === c}
+                        onClick={() => setCategory(c)}
                         className={cn(
-                          "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted",
-                          active === x.test && "bg-brand-50 text-brand-700 hover:bg-brand-50",
+                          "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
+                          category === c ? "border-brand-600 bg-brand-50 text-brand-700" : "bg-card text-muted-foreground hover:text-foreground",
                         )}
                       >
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium">{x.display_name}</span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {x.units.join(", ") || "no unit"} · {formatDate(x.latest_date)}
-                          </span>
-                        </span>
-                        <span className="shrink-0 rounded-full bg-muted px-2 text-xs tabular-nums text-muted-foreground">{x.count}</span>
+                        {c === "all" ? "All panels" : c}
                       </button>
-                    </li>
-                  ))}
-                  {tests.length === 0 && <li className="px-3 py-4 text-sm text-muted-foreground">No tests match.</li>}
-                </ul>
-              </aside>
-              <div className="min-w-0">{active && <TrendDetailView test={active} />}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="relative lg:w-64">
+                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search tests" className="h-9 pl-9" aria-label="Search tests" />
+              </div>
             </div>
+            {tests.length === 0 ? (
+              <p className="surface p-8 text-center text-sm text-muted-foreground">No tests match these filters.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {tests.map((x) => (
+                  <TestTile key={x.test} test={x} onOpen={() => setOpen(x.test)} />
+                ))}
+              </div>
+            )}
           </TabsContent>
           <TabsContent value="all">
             <AllResults />
           </TabsContent>
         </Tabs>
       )}
+
+      <Sheet open={!!open && !!openTest} onOpenChange={(o) => !o && setOpen(null)}>
+        <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-2xl">
+          <SheetTitle className="sr-only">{openTest?.display_name ?? "Test details"}</SheetTitle>
+          <div className="p-5 pt-12 sm:p-6 sm:pt-12">{open && <TrendDetailView test={open} />}</div>
+        </SheetContent>
+      </Sheet>
       <Disclaimer className="mt-6" />
     </>
+  );
+}
+
+export default function LabResultsPage() {
+  return (
+    <Suspense fallback={<ListSkeleton rows={6} />}>
+      <LabResultsContent />
+    </Suspense>
   );
 }

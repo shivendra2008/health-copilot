@@ -130,3 +130,12 @@ def test_spoofed_keys_become_user_items():
     d["lab_results"][0]["key"] = "not-a-real-key"
     out = mark_corrections(ExtractionData.model_validate(d), ai)
     assert out.lab_results[0].origin == "user" and out.lab_results[0].key != "not-a-real-key"
+
+
+def test_derived_includes_numbers_for_range_bars():
+    d = {x["test_name"]: x for x in derived_comparisons(_data())}
+    hb = d["Hemoglobin"]
+    assert hb["value_num"] == 11.2 and hb["ref_low"] == 13.0 and hb["ref_high"] == 17.0
+    dd = _data()
+    dd.lab_results[0].value = "<0.5"
+    assert derived_comparisons(dd)[0]["value_num"] is None   # limits are never plotted as exact values

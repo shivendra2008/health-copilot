@@ -14,7 +14,7 @@ interface Signed {
 }
 
 /** Shows the original file via a short-lived signed URL from the private bucket. */
-export function DocumentViewer({ id, className = "" }: { id: string; className?: string }) {
+export function DocumentViewer({ id, className = "", bare = false }: { id: string; className?: string; bare?: boolean }) {
   // Signed URLs are short-lived; refresh shortly before they expire.
   const { data: signed, error: loadError, mutate } = useSWR<Signed>(`/api/v1/documents/${id}/file`, {
     revalidateOnFocus: false,
@@ -32,8 +32,8 @@ export function DocumentViewer({ id, className = "" }: { id: string; className?:
     }
   }
   return (
-    <div className={`surface flex flex-col overflow-hidden ${className}`}>
-      <div className="flex items-center justify-between border-b px-3 py-2">
+    <div className={`${bare ? "" : "surface"} flex flex-col overflow-hidden ${className}`}>
+      <div className={`${bare ? "hidden" : "flex"} items-center justify-between border-b px-3 py-2`}>
         <span className="truncate text-xs font-medium text-muted-foreground">{signed?.file_name ?? "Original document"}</span>
         <Button variant="ghost" size="xs" onClick={openNewTab}>
           <ExternalLink /> Open
