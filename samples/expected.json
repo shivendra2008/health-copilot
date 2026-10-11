@@ -1,0 +1,38 @@
+{
+  "lab_report_2026-03.pdf": {
+    "document_type": "lab_report",
+    "document_date": "2026-03-12",
+    "lab_results": {
+      "Hemoglobin": "11.2",
+      "Total Leucocyte Count": "7,800",
+      "Platelet Count": "2.6",
+      "MCV": "78",
+      "Fasting Glucose": "104",
+      "HbA1c": "5.8",
+      "Serum Creatinine": "0.8",
+      "TSH": "2.4"
+    },
+    "medications": []
+  },
+  "lab_report_2026-08_scanned.png": {
+    "document_type": "lab_report",
+    "document_date": "2026-08-20",
+    "lab_results": {
+      "Hemoglobin": "12.6",
+      "MCV": "82",
+      "Fasting Glucose": "5.4",
+      "HbA1c": "5.6"
+    },
+    "medications": []
+  },
+  "prescription_2026-03.pdf": {
+    "document_type": "prescription",
+    "document_date": "2026-03-15",
+    "lab_results": {},
+    "medications": [
+      "Ferrous Ascorbate",
+      "Folic Acid",
+      "Vitamin C"
+    ]
+  }
+}

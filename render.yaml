@@ -1,0 +1,25 @@
+# Render Blueprint — backend API as a Docker web service.
+# PaddleOCR needs ~1.7 GB RAM at peak: use the "standard" plan (2 GB) or larger.
+services:
+  - type: web
+    name: health-copilot-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: standard
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: CORS_ORIGINS
+        sync: false   # e.g. https://your-app.vercel.app
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
