@@ -130,6 +130,17 @@ class ChatRequest(BaseModel):
     language: Lang = "en"
 
 
+class TranslateRequest(BaseModel):
+    language: Lang
+
+
+class TranslateResponse(BaseModel):
+    message_id: str
+    language: Lang
+    content: str
+    translated: bool = True
+
+
 class Citation(BaseModel):
     ref: str
     kind: str

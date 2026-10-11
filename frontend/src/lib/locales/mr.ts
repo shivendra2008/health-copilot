@@ -545,4 +545,6 @@ export const mr: Dict = {
   "rev.showSource": "हे कुठून आले ते दाखवा",
   "rev.noDate": "तारीख नाही",
   "rev.items": "पुनरावलोकनासाठी {n} गोष्टी",
+  "as.translating": "भाषांतर होत आहे…",
+  "as.keptOriginal": "प्रत्येक मूल्य अचूक राहावे म्हणून मूळ भाषेत दाखवले.",
 };

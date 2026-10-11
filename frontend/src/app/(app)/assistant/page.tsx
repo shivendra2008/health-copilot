@@ -69,6 +69,12 @@ function AssistantContent() {
   const [loadingConv, setLoadingConv] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const seq = useRef(0);
+  // Answers shown in other languages: translations are cached per message; facts are kept exact server-side.
+  const [translations, setTranslations] = useState<Record<string, Partial<Record<Lang, string>>>>({});
+  const [kept, setKept] = useState<Set<string>>(new Set());
+  const [origLang, setOrigLang] = useState<Record<string, Lang>>({});
+  const [translating, setTranslating] = useState<Set<string>>(new Set());
+  const targetRef = useRef<Lang>(chatLang);
   const { data: convs, mutate: mutateConvs } = useSWR<Page<Conv>>("/api/v1/assistant/conversations?limit=30");
 
   useEffect(() => {
@@ -86,12 +92,67 @@ function AssistantContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
+  /** Script-based guess of an answer's language (Devanagari can't tell Hindi from Marathi). */
+  function guessLang(text: string): Lang | "deva" | null {
+    if (/[\u0C00-\u0C7F]/.test(text)) return "te";
+    if (/[\u0900-\u097F]/.test(text)) return "deva";
+    if (/[A-Za-z]/.test(text)) return "en";
+    return null;
+  }
+
+  async function translateAll(target: Lang, msgs: ChatMessage[], known: Record<string, Lang>) {
+    targetRef.current = target;
+    const todo = msgs.filter(
+      (m) => m.role === "assistant" && !m.id.startsWith("tmp-") && known[m.id] !== target && !translations[m.id]?.[target],
+    );
+    if (!todo.length) return;
+    setTranslating(new Set(todo.map((m) => m.id)));
+    // One at a time: gentle on the AI provider's rate limits, and newest answers first.
+    for (const m of [...todo].reverse()) {
+      if (targetRef.current !== target) break; // user switched again
+      try {
+        const r = await api<{ content: string; translated: boolean }>(`/api/v1/assistant/messages/${m.id}/translate`, {
+          method: "POST",
+          json: { language: target },
+        });
+        setTranslations((prev) => ({ ...prev, [m.id]: { ...prev[m.id], [target]: r.content } }));
+        if (!r.translated) setKept((prev) => new Set(prev).add(m.id));
+      } catch (e) {
+        toast.error(errorMessage(e));
+        break;
+      } finally {
+        setTranslating((prev) => {
+          const next = new Set(prev);
+          next.delete(m.id);
+          return next;
+        });
+      }
+    }
+    if (targetRef.current === target) setTranslating(new Set());
+  }
+
+  function changeLang(l: Lang) {
+    setChatLang(l);
+    void translateAll(l, messages, origLang);
+  }
+
   async function open(id: string) {
     setLoadingConv(true);
     try {
       const res = await api<{ items: ChatMessage[] }>(`/api/v1/assistant/conversations/${id}/messages`);
       setConvId(id);
       setMessages(res.items);
+      // Work out what language each stored answer is in, then show it in the current answer language.
+      const known: Record<string, Lang> = { ...origLang };
+      for (const m of res.items) {
+        if (m.role !== "assistant") continue;
+        const g = guessLang(m.content);
+        if (g === "deva") {
+          if (chatLang === "hi" || chatLang === "mr") known[m.id] = chatLang;
+        } else if (g) known[m.id] = g;
+      }
+      setOrigLang(known);
+      void translateAll(chatLang, res.items, known);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -125,6 +186,7 @@ function AssistantContent() {
         { method: "POST", json: { message: msg, conversation_id: convId, language: chatLang } },
       );
       setConvId(res.conversation_id);
+      setOrigLang((prev) => ({ ...prev, [res.message_id]: chatLang }));
       setMessages((m) => [
         ...m,
         { id: res.message_id, role: "assistant", content: res.answer, citations: res.citations, insufficient_information: res.insufficient_information, created_at: "" },
@@ -150,7 +212,7 @@ function AssistantContent() {
               label={t("as.answerLang")}
               size="sm"
               value={chatLang}
-              onChange={setChatLang}
+              onChange={changeLang}
               options={(Object.keys(LANG_LABELS) as Lang[]).map((l) => ({ value: l, label: LANG_LABELS[l] }))}
             />
             <Button variant="outline" onClick={() => { setConvId(null); setMessages([]); }}>
@@ -216,7 +278,20 @@ function AssistantContent() {
                         <AlertTriangle className="size-3.5" /> {t("assistant.insufficient")}
                       </p>
                     )}
-                    <p className="whitespace-pre-wrap">{m.content}</p>
+                    {m.role === "assistant" && translating.has(m.id) && (
+                      <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
+                        <Loader2 className="size-3.5 animate-spin" /> {t("as.translating")}
+                      </p>
+                    )}
+                    <p
+                      lang={m.role === "assistant" && translations[m.id]?.[chatLang] ? chatLang : undefined}
+                      className={cn("whitespace-pre-wrap transition-opacity", translating.has(m.id) && "opacity-50")}
+                    >
+                      {m.role === "assistant" ? (translations[m.id]?.[chatLang] ?? m.content) : m.content}
+                    </p>
+                    {m.role === "assistant" && kept.has(m.id) && origLang[m.id] !== chatLang && (
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">{t("as.keptOriginal")}</p>
+                    )}
                     {m.role === "assistant" && <Sources cites={m.citations} />}
                   </div>
                 </div>

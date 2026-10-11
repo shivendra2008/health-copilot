@@ -1,4 +1,6 @@
 import re
+import unicodedata
+import uuid
 
 from fastapi import APIRouter, Depends
 
@@ -8,9 +10,9 @@ from ..config import get_settings
 from ..deps import Pagination, get_db
 from ..errors import ApiError
 from ..ratelimit import check_rate_limit
-from ..schemas.api import ChatRequest, ChatResponse, Citation
+from ..schemas.api import ChatRequest, ChatResponse, Citation, TranslateRequest, TranslateResponse
 from ..services.groq_client import LLMError, chat_json
-from ..services.prompts import ASSISTANT_SCHEMA, ASSISTANT_SYSTEM, LANG_NAMES
+from ..services.prompts import ASSISTANT_SCHEMA, ASSISTANT_SYSTEM, LANG_NAMES, TRANSLATE_SCHEMA, TRANSLATE_SYSTEM
 from ..services.retrieval import build_context
 
 router = APIRouter(prefix="/api/v1/assistant", tags=["assistant"])
@@ -79,6 +81,47 @@ def chat(body: ChatRequest, user: CurrentUser = Depends(get_current_user)):
     audit(db, user.id, "assistant.asked", "conversation", conv["id"], {"context_items": len(context), "citations": len(cites)})
     return ChatResponse(conversation_id=conv["id"], message_id=msg["id"], answer=answer,
                         citations=[Citation(**c) for c in cites], insufficient_information=insufficient)
+
+
+_NUM = re.compile(r"\d+(?:[.,]\d+)?")
+_REF = re.compile(r"\[R\d+\]")
+
+
+def same_facts(original: str, translated: str) -> bool:
+    """True when both texts contain the same numbers and the same [R#] markers (order-insensitive)."""
+    def norm(s: str) -> str:
+        # Fold odd spaces/forms, then any script's digits (e.g. Devanagari १२, Telugu ౧౨) to ASCII.
+        s = unicodedata.normalize("NFKC", s)
+        return "".join(str(unicodedata.digit(c)) if c.isdigit() and not c.isascii() else c for c in s)
+
+    a, b = norm(original), norm(translated)
+    return sorted(_NUM.findall(a)) == sorted(_NUM.findall(b)) and sorted(_REF.findall(a)) == sorted(_REF.findall(b))
+
+
+@router.post("/messages/{message_id}/translate", response_model=TranslateResponse)
+def translate_message(message_id: str, body: TranslateRequest, user: CurrentUser = Depends(get_current_user)):
+    """Show an existing assistant answer in another language (same facts, same citations)."""
+    check_rate_limit(user.id, "chat", get_settings().rate_limit_chat * 3)
+    db = get_db()
+    try:
+        uuid.UUID(message_id)
+    except ValueError:
+        raise ApiError(404, "not_found", "Message not found.")
+    rows = (db.table("assistant_messages").select("id,role,content").eq("id", message_id).eq("user_id", user.id)
+            .limit(1).execute().data)
+    if not rows or rows[0]["role"] != "assistant":
+        raise ApiError(404, "not_found", "Message not found.")
+    try:
+        raw, _ = chat_json(TRANSLATE_SYSTEM.format(language=LANG_NAMES[body.language]), rows[0]["content"],
+                           "translation", TRANSLATE_SCHEMA, temperature=0.0, max_tokens=1500, max_wait=20.0)
+    except LLMError as e:
+        raise ApiError(429 if e.code == "ai_rate_limited" else 503, e.code, e.message)
+    text = (raw.get("text") or "").strip()
+    # Deterministic guard: a translation must carry exactly the same numbers and source markers.
+    # If anything differs, show the original rather than risk a changed fact.
+    if not text or not same_facts(rows[0]["content"], text):
+        return TranslateResponse(message_id=message_id, language=body.language, content=rows[0]["content"], translated=False)
+    return TranslateResponse(message_id=message_id, language=body.language, content=text)
 
 
 @router.get("/conversations")

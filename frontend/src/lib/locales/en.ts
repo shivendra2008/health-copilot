@@ -543,6 +543,8 @@ export const en = {
   "rev.showSource": "Show where this came from",
   "rev.noDate": "No date",
   "rev.items": "{n} items to review",
+  "as.translating": "Translating…",
+  "as.keptOriginal": "Shown in the original language so every value stays exact.",
 };
 
 export type TKey = keyof typeof en;

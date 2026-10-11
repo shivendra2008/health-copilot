@@ -134,3 +134,24 @@ def test_telugu_supported_everywhere():
     assert SummaryRequest(language="te").language == "te"
     assert ProfilePatch(preferred_language="te").preferred_language == "te"
     assert "Telugu" in LANG_NAMES["te"] and NO_DATA["te"]
+
+
+def test_translate_requires_auth_and_valid_language():
+    r = client.post("/api/v1/assistant/messages/11111111-1111-1111-1111-111111111111/translate", json={"language": "te"})
+    assert r.status_code == 401
+    app.dependency_overrides[auth.get_current_user] = lambda: CurrentUser("u1", "a@b.c")
+    try:
+        r = client.post("/api/v1/assistant/messages/x/translate", json={"language": "fr"})
+        assert r.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_translation_fact_guard():
+    from app.routers.assistant import same_facts
+    src = "Hemoglobin was 11.2 g/dL on 12 Mar 2026 [R1], range 12.0 - 15.5. Ferrous Ascorbate 100 mg [R3]."
+    ok = "हीमोग्लोबिन 12 मार्च 2026 को 11.2 g/dL था [R1], सीमा 12.0 - 15.5। Ferrous Ascorbate 100 mg [R3]।"
+    assert same_facts(src, ok)
+    assert not same_facts(src, ok.replace("11.2", "12.2"))      # changed value
+    assert not same_facts(src, ok.replace("[R3]", ""))          # dropped citation
+    assert same_facts("Value १२", "Value 12")                    # Devanagari digits fold to ASCII
