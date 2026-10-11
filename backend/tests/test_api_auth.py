@@ -155,3 +155,63 @@ def test_translation_fact_guard():
     assert not same_facts(src, ok.replace("11.2", "12.2"))      # changed value
     assert not same_facts(src, ok.replace("[R3]", ""))          # dropped citation
     assert same_facts("Value १२", "Value 12")                    # Devanagari digits fold to ASCII
+
+
+# ---- local JWT verification (no network) -------------------------------------------------
+import time as _time
+import types as _types
+
+import jwt as _jwt
+from cryptography.hazmat.primitives.asymmetric import ec as _ec
+from jwt import PyJWK as _PyJWK
+
+_URL = "https://proj.supabase.co"
+
+
+def _keypair(kid="k1"):
+    priv = _ec.generate_private_key(_ec.SECP256R1())
+    jwk = _jwt.algorithms.ECAlgorithm.to_jwk(priv.public_key(), as_dict=True) | {"kid": kid, "alg": "ES256", "use": "sig"}
+    return priv, {kid: _PyJWK(jwk)}
+
+
+def _token(priv, **over):
+    claims = {"sub": "user-123", "email": "a@b.c", "aud": "authenticated", "iss": f"{_URL}/auth/v1",
+              "exp": int(_time.time()) + 600} | over
+    return _jwt.encode(claims, priv, algorithm="ES256", headers={"kid": "k1"})
+
+
+@pytest.fixture
+def jwks(monkeypatch):
+    priv, keys = _keypair()
+    monkeypatch.setattr(auth, "_load_jwks", lambda force=False: keys)
+    monkeypatch.setattr(auth, "get_settings", lambda: _types.SimpleNamespace(supabase_url=_URL, supabase_configured=True))
+    return priv
+
+
+def test_local_verify_accepts_valid_token(jwks):
+    u = auth.verify_locally(_token(jwks))
+    assert u == CurrentUser("user-123", "a@b.c")
+
+
+@pytest.mark.parametrize("over", [{"exp": 1}, {"aud": "anon"}, {"iss": "https://evil.example/auth/v1"}])
+def test_local_verify_rejects_expired_wrong_audience_wrong_issuer(jwks, over):
+    with pytest.raises(ApiError) as e:
+        auth.verify_locally(_token(jwks, **over))
+    assert e.value.status == 401
+
+
+def test_local_verify_rejects_token_signed_by_another_key(jwks):
+    other, _ = _keypair()
+    with pytest.raises(ApiError) as e:
+        auth.verify_locally(_token(other))   # same kid, different key → bad signature
+    assert e.value.status == 401
+
+
+def test_local_verify_unknown_kid_or_alg_defers_to_network(jwks):
+    other, _ = _keypair()
+    t = _jwt.encode({"sub": "x", "exp": int(_time.time()) + 60}, other, algorithm="ES256", headers={"kid": "other-kid"})
+    assert auth.verify_locally(t) is None
+    hs = _jwt.encode({"sub": "x"}, "secret-secret-secret-secret-secret!", algorithm="HS256")
+    assert auth.verify_locally(hs) is None
+    with pytest.raises(ApiError):
+        auth.verify_locally("not.a.jwt")

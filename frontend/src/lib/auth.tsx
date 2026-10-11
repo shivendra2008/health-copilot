@@ -30,6 +30,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    try {
+      Object.keys(sessionStorage).filter((k) => k.startsWith("hc.cache.")).forEach((k) => sessionStorage.removeItem(k));
+    } catch {
+      /* ignore */
+    }
     await getSupabase()?.auth.signOut();
     setSession(null);
   };

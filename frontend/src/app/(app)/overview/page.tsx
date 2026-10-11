@@ -4,7 +4,7 @@ import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
-import { OverviewView } from "@/components/app/overview";
+import { Hero, OverviewView } from "@/components/app/overview";
 import { ErrorState } from "@/components/app/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
@@ -21,16 +21,37 @@ export default function OverviewPage() {
       return false;
     }
   });
-  const { data, error, mutate } = useSWR<Dashboard>("/api/v1/dashboard", {
-    refreshInterval: (d) => (d && d.stats.processing > 0 ? 4000 : 0),
+  // Instant paint: show the last dashboard this tab saw (sessionStorage: per-tab, cleared on sign-out)
+  // while fresh data loads in the background.
+  const cacheKey = user ? `hc.cache.dashboard.${user.id}` : null;
+  const [cached] = useState<Dashboard | undefined>(() => {
+    try {
+      const raw = cacheKey ? sessionStorage.getItem(cacheKey) : null;
+      return raw ? (JSON.parse(raw) as Dashboard) : undefined;
+    } catch {
+      return undefined;
+    }
   });
+  const { data, error, mutate } = useSWR<Dashboard>("/api/v1/dashboard", {
+    fallbackData: cached,
+    refreshInterval: (d) => (d && d.stats.processing > 0 ? 4000 : 0),
+    onSuccess: (d) => {
+      try {
+        if (cacheKey) sessionStorage.setItem(cacheKey, JSON.stringify(d));
+      } catch {
+        /* storage full or unavailable */
+      }
+    },
+  });
+  const firstName = (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0];
 
-  if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
+  if (error && !data) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) {
+    // Greeting and buttons appear immediately; only the data-driven cards wait.
     return (
-      <div className="space-y-6" aria-busy="true" aria-label={t("common.loading")}>
-        <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-          <Skeleton className="h-[340px] rounded-3xl bg-muted" />
+      <div className="space-y-7" aria-busy="true" aria-label={t("common.loading")}>
+        <div className="grid gap-7 xl:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
+          <Hero name={firstName} />
           <Skeleton className="h-[340px] rounded-3xl bg-muted" />
         </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">

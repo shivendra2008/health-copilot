@@ -24,6 +24,7 @@ import { AreaSpark } from "@/components/app/area-spark";
 import { StatusPill } from "@/components/app/comparison";
 import { StatusBadge } from "@/components/app/badges";
 import { Disclaimer } from "@/components/app/states";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/format";
 import { currentDateLocale, useI18n, type TKey } from "@/lib/i18n";
 import type { Dashboard, Interpretation, TrendTest } from "@/lib/types";
@@ -64,14 +65,16 @@ function greetingKey(hour: number): TKey {
 
 /* ----------------------------------------------------------------------------- hero */
 
-function Hero({ d, name }: { d: Dashboard; name?: string }) {
+export function Hero({ d, name }: { d?: Dashboard; name?: string }) {
   const { t } = useI18n();
   const [hour] = useState(() => new Date().getHours());
   const [today] = useState(() => new Date().toLocaleDateString(currentDateLocale(), { weekday: "long", day: "numeric", month: "long" }));
-  const pending = d.recent_documents.find((x) => x.status === "needs_review");
+  const pending = d?.recent_documents.find((x) => x.status === "needs_review");
 
   let status: React.ReactNode;
-  if (d.stats.pending_review > 0) {
+  if (!d) {
+    status = <Skeleton className="h-9 w-64 rounded-full bg-muted" aria-hidden="true" />;
+  } else if (d.stats.pending_review > 0) {
     status = (
       <Link
         href={pending ? `/records/${pending.id}/review` : "/records"}
@@ -130,13 +133,13 @@ function Hero({ d, name }: { d: Dashboard; name?: string }) {
 
         <dl className="mt-8 grid grid-cols-3 gap-3 sm:max-w-md">
           {[
-            { label: t("overview.totalRecords"), value: d.stats.total_documents, icon: ClipboardList, href: "/records" },
-            { label: t("nav.labs"), value: d.stats.lab_results, icon: FlaskConical, href: "/lab-results" },
-            { label: t("ov.medicines"), value: d.stats.medications, icon: Pill, href: "/timeline" },
+            { label: t("overview.totalRecords"), value: d?.stats.total_documents, icon: ClipboardList, href: "/records" },
+            { label: t("nav.labs"), value: d?.stats.lab_results, icon: FlaskConical, href: "/lab-results" },
+            { label: t("ov.medicines"), value: d?.stats.medications, icon: Pill, href: "/timeline" },
           ].map(({ label, value, icon: Icon, href }) => (
             <Link key={label} href={href} className="neu-inset block px-3.5 py-3 transition-opacity hover:opacity-90">
               <Icon className="mb-1.5 size-4 text-brand-600" />
-              <dd className="text-xl font-semibold tabular-nums">{value}</dd>
+              <dd className="text-xl font-semibold tabular-nums">{value ?? <span className="inline-block h-6 w-6 animate-pulse rounded bg-muted align-middle" aria-hidden="true" />}</dd>
               <dt className="truncate text-[11px] text-muted-foreground">{label}</dt>
             </Link>
           ))}

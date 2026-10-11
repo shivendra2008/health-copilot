@@ -2,6 +2,7 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from .config import get_settings
 from .errors import install_error_handlers
@@ -17,7 +18,8 @@ app = FastAPI(title="Health Copilot API", version="1.0.0",
               docs_url="/docs" if settings.app_env != "production" else None, redoc_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=False,
                    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-                   allow_headers=["Authorization", "Content-Type"])
+                   allow_headers=["Authorization", "Content-Type"], max_age=86400)  # cache the CORS preflight for a day
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 install_error_handlers(app)
 
 

@@ -9,3 +9,4 @@ supabase>=2.10
 # OCR (heavy: ~1.7 GB RAM at peak on dense pages)
 paddlepaddle>=3.0
 paddleocr>=3.0
+pyjwt[crypto]>=2.8

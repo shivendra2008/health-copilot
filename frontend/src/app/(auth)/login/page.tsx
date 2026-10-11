@@ -9,7 +9,8 @@ import { Disclaimer } from "@/components/app/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api, ApiError, errorMessage } from "@/lib/api";
+import { preload } from "swr";
+import { api, ApiError, errorMessage, fetcher } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
 import { LANG_LABELS, useI18n } from "@/lib/i18n";
@@ -55,6 +56,7 @@ export default function LoginPage() {
       if (mode === "signin") {
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        preload("/api/v1/dashboard", fetcher);
         router.replace("/overview");
       } else {
         signingUp.current = true;
