@@ -1,15 +1,19 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
 import { OverviewView } from "@/components/app/overview";
 import { ErrorState } from "@/components/app/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import type { Dashboard } from "@/lib/types";
 
 export default function OverviewPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [dismissed, setDismissed] = useState(() => {
     try {
       return localStorage.getItem("hc.onboarding.dismissed") === "1";
@@ -48,18 +52,32 @@ export default function OverviewPage() {
   };
 
   return (
-    <OverviewView
-      data={safe}
-      name={(user?.user_metadata?.full_name as string | undefined)?.split(" ")[0]}
-      showOnboarding={!dismissed}
-      onDismissOnboarding={() => {
-        setDismissed(true);
-        try {
-          localStorage.setItem("hc.onboarding.dismissed", "1");
-        } catch {
-          /* ignore */
-        }
-      }}
-    />
+    <>
+      <div className="pb-16 lg:pb-20">
+        <OverviewView
+          data={safe}
+          name={(user?.user_metadata?.full_name as string | undefined)?.split(" ")[0]}
+          showOnboarding={!dismissed}
+          onDismissOnboarding={() => {
+            setDismissed(true);
+            try {
+              localStorage.setItem("hc.onboarding.dismissed", "1");
+            } catch {
+              /* ignore */
+            }
+          }}
+        />
+      </div>
+
+      {/* Floating shortcut to the assistant. On phones it sits above the upload button. */}
+      <Link
+        href="/assistant"
+        aria-label={t("nav.assistant")}
+        className="neu-press fixed right-4 bottom-36 z-30 flex size-12 items-center justify-center gap-2 rounded-full border border-[var(--neu-edge)] bg-card text-brand-700 shadow-[0_8px_24px_rgba(20,45,33,0.16)] focus-visible:ring-4 focus-visible:ring-brand-600/30 focus-visible:outline-none lg:right-8 lg:bottom-8 lg:h-14 lg:w-auto lg:border-transparent lg:bg-brand-600 lg:px-6 lg:text-white lg:shadow-[0_8px_24px_rgba(29,107,80,0.35)] lg:hover:bg-brand-700"
+      >
+        <Sparkles className="size-5" />
+        <span className="hidden text-sm font-semibold lg:inline">{t("nav.assistant")}</span>
+      </Link>
+    </>
   );
 }
