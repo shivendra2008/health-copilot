@@ -528,6 +528,21 @@ export const en = {
   "time.min": "{n} min ago",
   "time.hour": "{n} h ago",
   "time.day": "{n} d ago",
+  "rev.filter.all": "All",
+  "rev.filter.attention": "Needs attention",
+  "rev.filter.unchecked": "Not checked",
+  "rev.edit": "Edit",
+  "rev.done": "Done",
+  "rev.add": "Add",
+  "rev.addMore": "Add something else from the document",
+  "rev.nothingHere": "Nothing to show with this filter.",
+  "rev.allChecked": "Everything has been checked. You can confirm now.",
+  "rev.editDetails": "Edit details",
+  "rev.markRight": "Mark as right",
+  "rev.unmark": "Mark as not checked",
+  "rev.showSource": "Show where this came from",
+  "rev.noDate": "No date",
+  "rev.items": "{n} items to review",
 };
 
 export type TKey = keyof typeof en;
