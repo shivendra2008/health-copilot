@@ -2,6 +2,7 @@
 from functools import lru_cache
 
 from supabase import Client, create_client
+from supabase.lib.client_options import SyncClientOptions
 
 from .config import get_settings
 from .errors import ApiError
@@ -10,7 +11,9 @@ from .errors import ApiError
 @lru_cache
 def _client() -> Client:
     s = get_settings()
-    return create_client(s.supabase_url, s.supabase_service_role_key)
+    # Bounded timeouts: a slow or unreachable database must fail fast, not hang a request for minutes.
+    opts = SyncClientOptions(postgrest_client_timeout=s.db_timeout_seconds, storage_client_timeout=s.db_timeout_seconds * 2)
+    return create_client(s.supabase_url, s.supabase_service_role_key, options=opts)
 
 
 def get_db() -> Client:

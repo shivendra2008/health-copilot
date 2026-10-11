@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     storage_bucket: str = "medical-documents"
     signed_url_ttl_seconds: int = 120
+    db_timeout_seconds: float = 15.0
 
     # Groq (OpenAI-compatible API)
     groq_api_key: str = ""

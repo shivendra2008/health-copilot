@@ -545,6 +545,7 @@ export const en = {
   "rev.items": "{n} items to review",
   "as.translating": "Translating…",
   "as.keptOriginal": "Shown in the original language so every value stays exact.",
+  "error.timeout": "The server is taking too long to respond. Please try again.",
 };
 
 export type TKey = keyof typeof en;

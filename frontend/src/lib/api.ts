@@ -39,11 +39,19 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
     headers.set("Content-Type", "application/json");
     body = JSON.stringify(init.json);
   }
+  // Never wait forever: a stalled request becomes an error with a Retry button instead of an endless skeleton.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), init.method && init.method !== "GET" ? 90_000 : 25_000);
   let res: Response;
   try {
-    res = await fetch(`${env.apiUrl}${path}`, { ...init, headers, body, cache: "no-store" });
-  } catch {
+    res = await fetch(`${env.apiUrl}${path}`, { ...init, headers, body, cache: "no-store", signal: controller.signal });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new ApiError(0, "timeout", "The server is taking too long to respond. Please try again.");
+    }
     throw new ApiError(0, "network_error", "Cannot reach the Health Copilot server. Check that the backend is running.");
+  } finally {
+    clearTimeout(timer);
   }
   if (!res.ok) {
     const err = await parseError(res);

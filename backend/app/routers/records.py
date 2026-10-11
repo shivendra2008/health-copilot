@@ -1,4 +1,5 @@
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
@@ -63,12 +64,19 @@ def timeline(p: Pagination = Depends(), date_from: date | None = None, date_to: 
     return {"items": res.data, "total": res.count or 0, "limit": p.limit, "offset": p.offset}
 
 
-def test_summaries(db, user_id: str) -> list[dict]:
+OBS_COLS = ("normalized_name,test_name,category,document_id,value_text,value_num,value_comparator,unit,"
+            "unit_normalized,reference_range_text,ref_low,ref_high,interpretation,effective_date,created_at")
+
+
+def fetch_observations(db, user_id: str) -> list[dict]:
+    return (db.table("observations").select(OBS_COLS).eq("user_id", user_id)
+            .order("effective_date").order("created_at").limit(5000).execute().data)
+
+
+def test_summaries(db, user_id: str, rows: list[dict] | None = None) -> list[dict]:
     """One entry per test: latest confirmed value plus a same-unit sparkline (oldest → newest)."""
-    rows = (db.table("observations")
-            .select("normalized_name,test_name,category,document_id,value_text,value_num,value_comparator,unit,"
-                    "unit_normalized,reference_range_text,ref_low,ref_high,interpretation,effective_date,created_at")
-            .eq("user_id", user_id).order("effective_date").order("created_at").limit(5000).execute().data)
+    if rows is None:
+        rows = fetch_observations(db, user_id)
     by_test: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by_test[r["normalized_name"]].append(r)
@@ -128,41 +136,54 @@ def trends(test: str | None = Query(None, max_length=200), user: CurrentUser = D
 
 @router.get("/dashboard")
 def dashboard(user: CurrentUser = Depends(get_current_user)):
+    """Everything the Overview needs from 6 queries run IN PARALLEL (latency ≈ one round trip).
+
+    Previously this issued 14 sequential requests, which made the page crawl on a slow link."""
     db = get_db()
     uid = user.id
 
-    def count(table, **filters):
-        q = db.table(table).select("id", count="exact").eq("user_id", uid)
-        for k, v in filters.items():
-            q = q.in_(k, v) if isinstance(v, list) else q.eq(k, v)
-        return q.limit(1).execute().count or 0
+    def docs():
+        return (db.table("documents")
+                .select("id,file_name,doc_type,status,document_date,source_facility,created_at,status_detail")
+                .eq("user_id", uid).order("created_at", desc=True).limit(2000).execute().data)
 
-    recent_docs = (db.table("documents")
-                   .select("id,file_name,doc_type,status,document_date,source_facility,created_at,status_detail")
-                   .eq("user_id", uid).order("created_at", desc=True).limit(6).execute().data)
-    attention = (db.table("observations")
-                 .select("id,document_id,test_name,value_text,value_num,unit,reference_range_text,ref_low,ref_high,"
-                         "interpretation,effective_date")
-                 .eq("user_id", uid).in_("interpretation", ["above_range", "below_range"])
-                 .order("effective_date", desc=True).limit(6).execute().data)
-    activity = (db.table("audit_logs").select("action,entity_id,created_at,metadata")
-                .eq("user_id", uid).in_("action", ["document.uploaded", "document.processed", "extraction.corrected",
-                                                   "extraction.confirmed", "document.process_failed", "document.deleted"])
+    def meds():
+        return db.table("medications").select("id", count="exact").eq("user_id", uid).limit(1).execute().count or 0
+
+    def convs():
+        return db.table("assistant_conversations").select("id", count="exact").eq("user_id", uid).limit(1).execute().count or 0
+
+    def activity():
+        return (db.table("audit_logs").select("action,entity_id,created_at,metadata").eq("user_id", uid)
+                .in_("action", ["document.uploaded", "document.processed", "extraction.corrected",
+                                "extraction.confirmed", "document.process_failed", "document.deleted"])
                 .order("created_at", desc=True).limit(8).execute().data)
-    tests = test_summaries(db, uid)
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        f_docs, f_obs, f_meds, f_convs, f_act = (pool.submit(fn) for fn in (docs, lambda: fetch_observations(db, uid), meds, convs, activity))
+        all_docs, obs_rows, n_meds, n_convs, act = (f.result() for f in (f_docs, f_obs, f_meds, f_convs, f_act))
+
+    status_count = lambda *names: sum(1 for d in all_docs if d["status"] in names)  # noqa: E731
+    tests = test_summaries(db, uid, obs_rows)
+
     breakdown = {"within_range": 0, "above_range": 0, "below_range": 0, "unverified": 0}
     for t in tests:
         breakdown[t["latest"]["interpretation"]] += 1
 
+    attention = [
+        {k: r[k] for k in ("document_id", "test_name", "value_text", "value_num", "unit", "reference_range_text",
+                           "ref_low", "ref_high", "interpretation", "effective_date")} | {"id": f"{r['document_id']}:{r['normalized_name']}:{i}"}
+        for i, r in enumerate(sorted((r for r in obs_rows if r["interpretation"] in ("above_range", "below_range")),
+                                     key=lambda r: r["effective_date"] or "", reverse=True)[:6])
+    ]
+
     # Documents per month for the last 12 months (by the date printed on the document, else upload date)
-    docs = (db.table("documents").select("document_date,created_at,status").eq("user_id", uid)
-            .limit(2000).execute().data)
     months: dict[str, dict[str, int]] = {}
     today = date.today()
     for i in range(11, -1, -1):
         y, m = divmod(today.year * 12 + today.month - 1 - i, 12)
         months[f"{y:04d}-{m + 1:02d}"] = {"documents": 0, "confirmed": 0}
-    for d in docs:
+    for d in all_docs:
         key = (d["document_date"] or d["created_at"])[:7]
         if key in months:
             months[key]["documents"] += 1
@@ -172,20 +193,19 @@ def dashboard(user: CurrentUser = Depends(get_current_user)):
         "range_breakdown": breakdown,
         "monthly": [{"month": k, **v} for k, v in months.items()],
         "stats": {
-            "total_documents": count("documents"),
-            "confirmed_documents": count("documents", status="confirmed"),
-            "pending_review": count("documents", status="needs_review"),
-            "processing": count("documents", status=["uploaded", "extracting_text", "analyzing"]),
-            "failed": count("documents", status="failed"),
-            "lab_results": count("observations"),
-            "out_of_range": count("observations", interpretation=["above_range", "below_range"]),
-            "medications": count("medications"),
-            "conversations": count("assistant_conversations"),
+            "total_documents": len(all_docs),
+            "confirmed_documents": status_count("confirmed"),
+            "pending_review": status_count("needs_review"),
+            "processing": status_count("uploaded", "extracting_text", "analyzing"),
+            "failed": status_count("failed"),
+            "lab_results": len(obs_rows),
+            "out_of_range": sum(1 for r in obs_rows if r["interpretation"] in ("above_range", "below_range")),
+            "medications": n_meds,
+            "conversations": n_convs,
         },
-        "snapshot": sorted(
-            (t for t in tests if t["latest"]["value_num"] is not None),
-            key=lambda t: (len(t["spark"]) > 1, t["latest_date"] or ""), reverse=True)[:4],
-        "recent_documents": recent_docs,
+        "snapshot": sorted((t for t in tests if t["latest"]["value_num"] is not None),
+                           key=lambda t: (len(t["spark"]) > 1, t["latest_date"] or ""), reverse=True)[:4],
+        "recent_documents": all_docs[:6],
         "attention": attention,
-        "activity": activity,
+        "activity": act,
     }
