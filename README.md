@@ -172,7 +172,8 @@ Import the repo and set **Root Directory = `frontend`**. Add the three `NEXT_PUB
 Measured peak memory for OCR on a dense page is **~1.7 GB**, so choose a host with **≥ 2 GB RAM**.
 
 - **Render**: *New → Blueprint* on this repo uses [`render.yaml`](render.yaml), a Docker service on the `standard` plan (2 GB). Fill in the secret env vars in the dashboard. The free 512 MB plan will run out of memory during OCR.
-- **Hugging Face Spaces** (free CPU tier, 16 GB RAM): create a *Docker* Space, push the contents of `backend/`, and add the env vars as Space *secrets*. The image listens on port `7860`, the Spaces default. Set the README front-matter to `sdk: docker` and `app_port: 7860`.
+- **Hugging Face Spaces** (Docker Spaces currently require a paid PRO plan): create a *Docker* Space, push the contents of `backend/`, and add the env vars as Space *secrets*. The image listens on port `7860`, the Spaces default. Set the README front-matter to `sdk: docker` and `app_port: 7860`.
+- **Your own VM** (full OCR, any Docker host with ≥ 2 GB RAM): see [DEPLOY_VM.md](DEPLOY_VM.md). Docker Compose + Cloudflare Tunnel for HTTPS, updated with `./deploy.sh`.
 - Anything else that runs Docker: `docker build -t health-copilot-api backend && docker run -p 8000:7860 --env-file backend/.env health-copilot-api`.
 
 OCR models are downloaded at image build time, so cold starts don't fetch them.

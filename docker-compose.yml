@@ -1,0 +1,53 @@
+# Self-hosted backend on a VM: FastAPI + OCR, exposed through a Cloudflare Tunnel
+# (no open ports, automatic HTTPS).
+#
+#   Permanent URL (needs a domain on Cloudflare):  docker compose --profile tunnel up -d --build
+#   Temporary URL (no domain, changes on restart): docker compose --profile quick up -d --build
+#
+# Secrets live in backend/.env (never committed). The tunnel token lives in ./.env (never committed).
+services:
+  api:
+    build: ./backend
+    container_name: health-copilot-api
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      APP_ENV: production
+      PORT: "8000"
+    expose:
+      - "8000"
+    # Bound to localhost only; the tunnel is the public entry point.
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+
+  tunnel:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:latest
+    container_name: health-copilot-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in ./.env}
+    depends_on:
+      api:
+        condition: service_healthy
+
+  quick-tunnel:
+    profiles: ["quick"]
+    image: cloudflare/cloudflared:latest
+    container_name: health-copilot-quick-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
