@@ -2,7 +2,7 @@
 
 **Upload a prescription and find out, in plain language, whether the medicines on it could hurt you.**
 
-Health Copilot is a personal health records app built around one worry: a patient who sees several doctors, or who is handed a
+MedMitra is a personal health records app built around one worry: a patient who sees several doctors, or who is handed a
 long prescription, has no easy way to know whether the medicines add up safely. You upload a prescription, lab report or
 discharge summary (or type a prescription in). The app reads it, shows you what it found next to the original so you can correct
 it, and then checks the medicines for the problems below. It works in **English, हिन्दी, मराठी and తెలుగు**, on the web and as a
