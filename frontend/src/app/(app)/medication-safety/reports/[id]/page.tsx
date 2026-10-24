@@ -6,69 +6,18 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
-import { SafetyDisclaimer, SeverityBadge } from "@/components/app/med-safety";
+import { FindingCard, SafetyDisclaimer, SeverityBadge } from "@/components/app/med-safety";
 import { Segmented } from "@/components/app/segmented";
 import { ErrorState, ListSkeleton, PageHeader } from "@/components/app/states";
 import { Button } from "@/components/ui/button";
 import { api, errorMessage } from "@/lib/api";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { hasKey, LANG_LABELS, useI18n, type TKey } from "@/lib/i18n";
-import type { ExplainResult, Lang, SafetyFinding, SafetyReport, Severity } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import type { ExplainResult, Lang, SafetyReport, Severity } from "@/lib/types";
 
 const BASE = "/api/v1/medication-safety";
 const SEVERITIES: Severity[] = ["critical", "high", "moderate", "low", "info"];
 const LANGS: Lang[] = ["en", "hi", "mr", "te"];
-
-function Finding({ f }: { f: SafetyFinding }) {
-  const { t } = useI18n();
-  const ev = f.evidence;
-  return (
-    <article
-      className={cn("surface space-y-3 p-4", f.severity === "critical" && "border-danger/60", f.severity === "high" && "border-danger/30")}
-      aria-label={f.title}
-    >
-      <header className="flex flex-wrap items-center gap-2">
-        <SeverityBadge severity={f.severity} />
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t(`ms.fstatus.${f.status}` as TKey)}</span>
-      </header>
-      <h3 className="text-base font-semibold">{f.title}</h3>
-      <dl className="space-y-3 text-sm">
-        <div>
-          <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t("ms.f.why")}</dt>
-          <dd className="mt-0.5">{f.explanation}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t("ms.f.medicines")}</dt>
-          <dd className="mt-1 flex flex-wrap gap-1.5">
-            {f.medicines.map((m) => (
-              <span key={m.id} className="rounded-md bg-muted px-2 py-1 text-xs font-medium">
-                {m.label}
-              </span>
-            ))}
-          </dd>
-        </div>
-        {ev && (
-          <div>
-            <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t("ms.f.evidence")}</dt>
-            <dd className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
-              <p>
-                {t("ms.f.rule", { id: ev.rule_id })} · {hasKey(`ms.f.review.${ev.review_status}`) ? t(`ms.f.review.${ev.review_status}` as TKey) : ev.review_status} ·{" "}
-                {t("ms.f.curated", { date: formatDate(ev.curated_on) ?? ev.curated_on })}
-              </p>
-              <p>{ev.source.citation}</p>
-              {ev.computed_daily_mg != null && ev.limit_mg != null && <p className="font-medium text-foreground">{t("ms.f.daily", { total: ev.computed_daily_mg, limit: ev.limit_mg })}</p>}
-            </dd>
-          </div>
-        )}
-        <div className="rounded-lg bg-brand-50/70 px-3 py-2">
-          <dt className="text-xs font-semibold tracking-wide text-brand-700 uppercase">{t("ms.f.next")}</dt>
-          <dd className="mt-0.5">{t(`ms.next.${f.next_step}` as TKey)}</dd>
-        </div>
-      </dl>
-    </article>
-  );
-}
 
 function Explain({ report }: { report: SafetyReport }) {
   const { t, lang } = useI18n();
@@ -139,7 +88,7 @@ export default function ReportPage() {
       {back}
       <PageHeader
         title={t("ms.rep.title")}
-        subtitle={`${t(r.source_type === "document" ? "ms.rep.sourceDoc" : "ms.rep.sourceCurrent")} · ${formatDateTime(r.created_at)}`}
+        subtitle={`${t(r.source_type === "typed" ? "ms.rep.sourceTyped" : r.source_type === "document" ? "ms.rep.sourceDoc" : "ms.rep.sourceCurrent")} · ${formatDateTime(r.created_at)}`}
         actions={
           <>
             {docId && (
@@ -176,7 +125,7 @@ export default function ReportPage() {
           {r.findings.length === 0 ? (
             <p className="rounded-xl border border-dashed px-4 py-5 text-sm">{t("ms.rep.noFindings")}</p>
           ) : (
-            r.findings.map((f) => <Finding key={f.id} f={f} />)
+            r.findings.map((f) => <FindingCard key={f.id} f={f} />)
           )}
         </section>
 
@@ -206,6 +155,24 @@ export default function ReportPage() {
                 <li key={i} className="rounded-lg bg-muted/60 px-3 py-2">
                   {m.medicine && <span className="font-medium">{m.medicine.label}: </span>}
                   {m.missing.map((k) => (hasKey(`ms.missing.${k}`) ? t(`ms.missing.${k}` as TKey) : k)).join(", ")}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {(r.summary.ingredient_totals?.length ?? 0) > 0 && (
+          <section aria-labelledby="ms-totals" className="space-y-2">
+            <h2 id="ms-totals" className="text-sm font-semibold">
+              {t("ms.sec.totals")}
+            </h2>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {r.summary.ingredient_totals?.map((x) => (
+                <li key={x.ingredient} className="surface px-3 py-2 text-sm">
+                  <p className="font-medium">
+                    {x.name}: {x.total_mg.toLocaleString()} mg
+                  </p>
+                  <p className="text-xs text-muted-foreground">{x.parts.map((p) => `${p.medicine.label}: ${p.mg_per_day.toLocaleString()} mg`).join("  +  ")}</p>
                 </li>
               ))}
             </ul>

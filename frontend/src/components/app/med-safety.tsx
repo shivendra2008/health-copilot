@@ -1,8 +1,9 @@
 "use client";
 
-import { AlertOctagon, AlertTriangle, CheckCircle2, CircleDashed, Info, Loader2, ShieldAlert, ShieldCheck, TriangleAlert } from "lucide-react";
-import { useI18n, type TKey } from "@/lib/i18n";
-import type { Severity } from "@/lib/types";
+import { AlertOctagon, CircleDashed, Info, ShieldAlert, ShieldCheck, TriangleAlert } from "lucide-react";
+import { formatDate } from "@/lib/format";
+import { hasKey, useI18n, type TKey } from "@/lib/i18n";
+import type { SafetyFinding, Severity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const pill = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap";
@@ -26,26 +27,6 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
   );
 }
 
-export type CheckState = "notChecked" | "needsConfirmation" | "checking" | "ready" | "failed";
-
-export function CheckStateBadge({ state }: { state: CheckState }) {
-  const { t } = useI18n();
-  const map: Record<CheckState, { cls: string; icon: React.ReactNode; key: TKey }> = {
-    notChecked: { cls: "bg-muted text-muted-foreground", icon: <CircleDashed className="size-3" />, key: "ms.state.notChecked" },
-    needsConfirmation: { cls: "bg-warn-bg text-warn", icon: <AlertTriangle className="size-3" />, key: "ms.state.needsConfirmation" },
-    checking: { cls: "bg-brand-50 text-brand-700", icon: <Loader2 className="size-3 animate-spin" />, key: "ms.state.checking" },
-    ready: { cls: "bg-ok-bg text-ok", icon: <CheckCircle2 className="size-3" />, key: "ms.state.ready" },
-    failed: { cls: "bg-danger-bg text-danger", icon: <AlertTriangle className="size-3" />, key: "ms.state.failed" },
-  };
-  const m = map[state];
-  return (
-    <span className={cn(pill, m.cls)} role="status">
-      {m.icon}
-      {t(m.key)}
-    </span>
-  );
-}
-
 export function SafetyDisclaimer({ className }: { className?: string }) {
   const { t } = useI18n();
   return (
@@ -56,5 +37,52 @@ export function SafetyDisclaimer({ className }: { className?: string }) {
       </p>
       <p className="pl-5.5 text-muted-foreground">{t("ms.demoNotice")}</p>
     </div>
+  );
+}
+
+/** One finding, written to answer: what is it, why does it matter, which medicines, what do I do. */
+export function FindingCard({ f }: { f: SafetyFinding }) {
+  const { t } = useI18n();
+  const ev = f.evidence;
+  return (
+    <article
+      className={cn("surface space-y-3 p-4", f.severity === "critical" && "border-danger/60", f.severity === "high" && "border-danger/30")}
+      aria-label={f.title}
+    >
+      <header className="flex flex-wrap items-center gap-2">
+        <SeverityBadge severity={f.severity} />
+        {f.status === "needs_confirmation" && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t("ms.fstatus.needs_confirmation")}</span>
+        )}
+      </header>
+      <h3 className="text-base font-semibold">{f.title}</h3>
+      <div className="flex flex-wrap gap-1.5">
+        {f.medicines.map((m) => (
+          <span key={m.id} className="rounded-md bg-muted px-2 py-1 text-xs font-medium">
+            {m.label}
+          </span>
+        ))}
+      </div>
+      <p className="text-sm leading-relaxed">{f.explanation}</p>
+      {ev?.computed_daily_mg != null && ev.limit_mg != null && (
+        <p className="text-sm font-medium">{t("ms.f.daily", { total: ev.computed_daily_mg.toLocaleString(), limit: ev.limit_mg.toLocaleString() })}</p>
+      )}
+      <div className="rounded-lg bg-brand-50/70 px-3 py-2 text-sm">
+        <p className="text-xs font-semibold tracking-wide text-brand-700 uppercase">{t("ms.f.next")}</p>
+        <p className="mt-0.5">{t(`ms.next.${f.next_step}` as TKey)}</p>
+      </div>
+      {ev && (
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer font-medium hover:text-foreground">{t("ms.f.source")}</summary>
+          <div className="mt-1.5 space-y-0.5">
+            <p>
+              {t("ms.f.rule", { id: ev.rule_id })} · {hasKey(`ms.f.review.${ev.review_status}`) ? t(`ms.f.review.${ev.review_status}` as TKey) : ev.review_status} ·{" "}
+              {t("ms.f.curated", { date: formatDate(ev.curated_on) ?? ev.curated_on })}
+            </p>
+            <p>{ev.source.citation}</p>
+          </div>
+        </details>
+      )}
+    </article>
   );
 }

@@ -366,8 +366,9 @@ export interface MedRef {
 
 export interface SafetyFinding {
   id: string;
-  type: "duplicate_ingredient" | "therapeutic_duplicate" | "interaction" | "dose_concern" | "unresolved_medicine";
+  type: "duplicate_ingredient" | "therapeutic_duplicate" | "interaction" | "dose_concern" | "patient_specific" | "unresolved_medicine";
   severity: Severity;
+  tier: "act" | "know" | "fyi";
   status: "potential_issue" | "needs_confirmation";
   medicines: MedRef[];
   title: string;
@@ -383,12 +384,16 @@ export interface SafetyFinding {
     computed_daily_mg?: number;
     limit_mg?: number;
     complete?: boolean;
+    ingredient_name?: string;
+    weight_kg?: number;
+    mg_per_kg_day?: number;
+    applies_to?: string;
   } | null;
 }
 
 export interface SafetyReport {
   id: string;
-  source_type: "document" | "current_list";
+  source_type: "document" | "current_list" | "typed";
   document_id: string | null;
   include_current: boolean;
   ruleset_version: string;
@@ -400,13 +405,20 @@ export interface SafetyReport {
   unresolved: { medicine: MedRef; reason: string }[];
   missing_information: { medicine: MedRef | null; missing: string[]; reason: string }[];
   limitations: string[];
-  summary: { total_findings: number; by_severity: Record<Severity, number>; medicines_checked: number; medicines_unresolved: number };
+  summary: {
+    total_findings: number;
+    by_severity: Record<Severity, number>;
+    by_tier?: Record<"act" | "know" | "fyi", number>;
+    medicines_checked: number;
+    medicines_unresolved: number;
+    ingredient_totals?: IngredientTotal[];
+  };
   created_at: string;
 }
 
 export interface SafetyReportListItem {
   id: string;
-  source_type: "document" | "current_list";
+  source_type: "document" | "current_list" | "typed";
   document_id: string | null;
   summary: SafetyReport["summary"];
   created_at: string;
@@ -417,4 +429,79 @@ export interface ExplainResult {
   language: Lang;
   content: string;
   generated_by: "assistant" | "deterministic";
+}
+
+// ---------------------------------------------------------------------------------- Prescription checker
+export interface FrequencyInfo {
+  code: string;
+  meaning: string;
+  per_day: number | null;
+  slots?: number[];
+  hours?: number;
+}
+export interface TimingInfo {
+  code: string;
+  meaning: string;
+}
+export interface ParsedMedicine {
+  key: string;
+  raw: string;
+  name: string;
+  strength: string | null;
+  dosage: string | null;
+  frequency: string | null;
+  timing: string | null;
+  duration: string | null;
+  frequency_info: FrequencyInfo | null;
+  timing_info: TimingInfo | null;
+}
+export interface ParseResult {
+  medicines: ParsedMedicine[];
+  skipped: string[];
+}
+export interface MedResolution {
+  status: ResolutionStatus;
+  catalogue_id: string | null;
+  confidence: "high" | "medium" | "low" | "none" | "user_confirmed";
+  reason: string;
+  candidates: CatalogueEntry[];
+}
+export interface AnalysisMedicine {
+  key: string;
+  name: string;
+  strength: string | null;
+  dosage: string | null;
+  frequency: string | null;
+  timing: string | null;
+  duration: string | null;
+  frequency_info: FrequencyInfo | null;
+  timing_info: TimingInfo | null;
+  units_per_dose: number | null;
+  doses_per_day: number | null;
+  resolution: MedResolution;
+  catalogue_entry: CatalogueEntry | null;
+}
+export interface IngredientTotal {
+  ingredient: string;
+  name: string;
+  total_mg: number;
+  complete: boolean;
+  parts: { medicine: MedRef; mg_per_day: number }[];
+}
+export interface Analysis {
+  findings: SafetyFinding[];
+  unresolved: { medicine: MedRef; reason: string }[];
+  missing_information: { medicine: MedRef | null; missing: string[]; reason: string }[];
+  ingredient_totals: IngredientTotal[];
+  limitations: string[];
+  summary: SafetyReport["summary"];
+  ruleset_version: string;
+  catalogue_version: string;
+  patient: { adult: boolean | null; age_known: boolean; weight_known: boolean; kidney: "normal" | "reduced" | "unknown" };
+  medicines: AnalysisMedicine[];
+}
+export interface PatientInput {
+  age_years: number | null;
+  weight_kg: number | null;
+  kidney: "normal" | "reduced" | "unknown";
 }

@@ -17,11 +17,13 @@ from ..config import get_settings
 from ..deps import Pagination, get_db, owned_document
 from ..errors import ApiError
 from ..ratelimit import check_rate_limit
-from ..schemas.med_safety import (CheckRequest, ConfirmedMedicationPatch, EDITABLE_FIELDS, ExplainRequest,
-                                  ManualMedicationRequest, ResolveBrandRequest)
+from ..schemas.med_safety import (AnalyzeRequest, CheckRequest, ConfirmedMedicationPatch, EDITABLE_FIELDS, ExplainRequest,
+                                  ManualMedicationRequest, ParseRequest, ResolveBrandRequest, SaveReportRequest)
 from ..services.groq_client import LLMError, chat_json
 from ..services.med_safety import catalogue as cat
+from ..services.med_safety.analysis import analyze as analyze_prescription
 from ..services.med_safety.engine import run_check, ruleset
+from ..services.med_safety.parser import parse_prescription
 from ..services.med_safety.explain import (EXPLAIN_SCHEMA, explain_prompt, numbers_are_grounded, plain_english)
 
 log = logging.getLogger("healthcopilot.medsafety")
@@ -101,6 +103,59 @@ def resolve_brand(body: ResolveBrandRequest, user: CurrentUser = Depends(get_cur
     """Stateless: shows how a name would resolve and which catalogue candidates exist. Nothing is saved
     until the user confirms a choice with PATCH /confirmed-medications/{id}."""
     return cat.resolve(body.name, body.strength).as_dict()
+
+
+# ----------------------------------------------------------------------------- typed prescription (stateless)
+@router.post("/parse")
+def parse_typed(body: ParseRequest, user: CurrentUser = Depends(get_current_user)):
+    """Typed prescription text → medicines with strength / dose / frequency, abbreviations explained. Nothing is stored."""
+    check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing * 3)
+    return parse_prescription(body.text)
+
+
+def _patient_dict(body) -> dict:
+    p = body.patient
+    return {"age_years": p.age_years, "weight_kg": p.weight_kg, "kidney": p.kidney}
+
+
+@router.post("/analyze")
+def analyze_typed(body: AnalyzeRequest, user: CurrentUser = Depends(get_current_user)):
+    """Resolve brands, run the deterministic rules and return a plain-language-ready analysis. Nothing is stored."""
+    check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing * 3)
+    try:
+        return analyze_prescription([m.model_dump() for m in body.medicines], _patient_dict(body))
+    except Exception as exc:  # noqa: BLE001
+        log.error("analysis failed: %s", type(exc).__name__)
+        raise ApiError(503, "check_failed", "The safety check could not be completed. Your documents are not affected. Please retry.")
+
+
+@router.post("/reports/save", status_code=201)
+@guarded
+def save_typed_report(body: SaveReportRequest, user: CurrentUser = Depends(get_current_user)):
+    """Save a report. The analysis is recomputed HERE from the submitted medicines, so a saved report always holds
+    findings produced by the rules engine, never client-supplied text."""
+    check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing)
+    db = get_db()
+    doc_id = owned_document(db, body.document_id, user.id, "id")["id"] if body.document_id else None
+    try:
+        a = analyze_prescription([m.model_dump() for m in body.medicines], _patient_dict(body))
+    except Exception as exc:  # noqa: BLE001
+        log.error("analysis failed: %s", type(exc).__name__)
+        raise ApiError(503, "check_failed", "The safety check could not be completed. Please retry.")
+    snapshot = [{"id": m["key"], "document_id": doc_id, "name": m["name"], "strength": m["strength"], "dosage": m["dosage"],
+                 "frequency": m["frequency"], "timing": m["timing"], "duration": m["duration"],
+                 "catalogue_id": m["resolution"]["catalogue_id"], "resolution_status": m["resolution"]["status"],
+                 "resolution_confidence": m["resolution"]["confidence"], "uncertain_fields": [], "current_status": "unknown"}
+                for m in a["medicines"]]
+    row = {"user_id": user.id, "source_type": "typed", "document_id": doc_id, "include_current": False,
+           "ruleset_version": a["ruleset_version"], "catalogue_version": a["catalogue_version"],
+           "medication_snapshot": snapshot, "patient_context": a["patient"], "findings": a["findings"],
+           "unresolved": a["unresolved"], "missing_information": a["missing_information"],
+           "limitations": a["limitations"], "summary": {**a["summary"], "ingredient_totals": a["ingredient_totals"]}}
+    saved = db.table("medication_safety_reports").insert(row).execute().data[0]
+    audit(db, user.id, "medsafety.checked", "report", saved["id"],
+          {"source": "typed", "medicines": len(snapshot), "findings": a["summary"]["total_findings"]})
+    return _with_labels(saved)
 
 
 # ----------------------------------------------------------------------------- confirmed medicines

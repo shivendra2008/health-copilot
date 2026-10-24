@@ -415,20 +415,18 @@ function ResultsList({ ex, terms }: { ex: Extraction; terms?: Summary["term_expl
   );
 }
 
-function Medicines({ ex, docId, confirmed }: { ex: Extraction; docId: string; confirmed: boolean }) {
+function Medicines({ ex, docId }: { ex: Extraction; docId: string }) {
   const { t } = useI18n();
   const meds = ex.data.medications;
   if (!meds.length) return null;
   return (
     <section>
       <SectionTitle icon={Pill} title={t("ov.medicines")} hint={t("rep.medHint")} />
-      {confirmed && (
-        <Button asChild variant="outline" size="sm" className="mb-3">
-          <Link href={`/medication-safety/prescription/${docId}`}>
-            <ShieldCheck /> {t("ms.entry")}
-          </Link>
-        </Button>
-      )}
+      <Button asChild size="sm" className="mb-3">
+        <Link href={`/medication-safety?from=${docId}`}>
+          <ShieldCheck /> {t("ms.entry")}
+        </Link>
+      </Button>
       <div className="grid gap-3 md:grid-cols-2">
         {meds.map((m) => (
           <div key={m.key} className="surface p-4">
@@ -666,7 +664,7 @@ export default function ReportPage() {
                 <PlainWords ex={ex} docId={id} view={view} setView={setView} onUpdated={(e) => mutateEx(e, { revalidate: false })} />
                 <OutsideRange items={outside} terms={terms} />
                 <ResultsList ex={ex} terms={terms} />
-                <Medicines ex={ex} docId={id} confirmed={doc.status === "confirmed"} />
+                <Medicines ex={ex} docId={id} />
                 <AlsoInDocument ex={ex} />
                 <DoctorQuestions summary={summary} view={view} />
                 <Glossary summary={summary} ex={ex} view={view} />

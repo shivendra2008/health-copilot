@@ -231,3 +231,56 @@ def test_explain_prompt_contains_only_report_data(db):
     rep = c.get(f"/api/v1/medication-safety/reports/{_report(c)}").json()
     system, prompt = explain_prompt(rep, "mr")
     assert "Marathi" in system and "ALICE" not in prompt.upper() and ALICE not in prompt and "user_id" not in prompt
+
+
+# ----------------------------------------------------------------------------- typed prescription endpoints
+def test_parse_and_analyze_are_stateless_and_need_login(db):
+    assert TestClient(app).post("/api/v1/medication-safety/parse", json={"text": "Tab Dolo OD"}).status_code == 401
+    assert TestClient(app).post("/api/v1/medication-safety/analyze", json={"medicines": []}).status_code == 401
+    c = as_user(ALICE)
+    before = {k: list(v) for k, v in db.tables.items()}
+    parsed = c.post("/api/v1/medication-safety/parse", json={"text": "Tab Dolo 650 mg 1 tab TDS\nTab Combiflam BD"}).json()
+    assert [m["name"] for m in parsed["medicines"]] == ["Dolo", "Combiflam"]
+    meds = [{k: m[k] for k in ("key", "name", "strength", "dosage", "frequency", "timing", "duration")} for m in parsed["medicines"]]
+    a = c.post("/api/v1/medication-safety/analyze", json={"medicines": meds, "patient": {"age_years": 50, "weight_kg": 70, "kidney": "normal"}})
+    assert a.status_code == 200
+    body = a.json()
+    assert body["summary"]["by_tier"]["act"] >= 1 and body["medicines"][0]["frequency_info"]["meaning"] == "three_times_daily"
+    assert db.tables == before  # nothing was written anywhere
+
+
+def test_analyze_validates_input(db):
+    c = as_user(ALICE)
+    url = "/api/v1/medication-safety/analyze"
+    ok = {"key": "m1", "name": "Dolo"}
+    assert c.post(url, json={"medicines": []}).status_code == 422
+    assert c.post(url, json={"medicines": [ok] * 31}).status_code == 422
+    assert c.post(url, json={"medicines": [ok], "patient": {"age_years": 500}}).status_code == 422
+    assert c.post(url, json={"medicines": [ok], "patient": {"weight_kg": -3}}).status_code == 422
+    assert c.post(url, json={"medicines": [ok], "patient": {"kidney": "bad"}}).status_code == 422
+    assert c.post(url, json={"medicines": [{**ok, "findings": ["x"]}]}).status_code == 422  # unknown fields are rejected
+    assert c.post("/api/v1/medication-safety/parse", json={"text": "x" * 6001}).status_code == 422
+
+
+def test_save_recomputes_findings_on_the_server(db):
+    c = as_user(ALICE)
+    body = {"medicines": [{"key": "m1", "name": "Warfarin"}, {"key": "m2", "name": "Voveran 50"}], "patient": {"age_years": 40}}
+    r = c.post("/api/v1/medication-safety/reports/save", json=body)
+    assert r.status_code == 201
+    rep = r.json()
+    assert rep["source_type"] == "typed" and any(f["evidence"] and f["evidence"]["rule_id"] == "R-INT-001" for f in rep["findings"])
+    assert c.post("/api/v1/medication-safety/reports/save", json={**body, "findings": []}).status_code == 422  # client findings are refused
+    assert c.get(f"/api/v1/medication-safety/reports/{rep['id']}").status_code == 200
+    assert as_user(BOB).get(f"/api/v1/medication-safety/reports/{rep['id']}").status_code == 404
+
+
+def test_save_with_someone_elses_document_is_404(db):
+    r = as_user(ALICE).post("/api/v1/medication-safety/reports/save",
+                            json={"medicines": [{"key": "m1", "name": "Dolo"}], "document_id": DOC_B})
+    assert r.status_code == 404 and not db.tables["medication_safety_reports"]
+
+
+def test_analyze_failure_is_a_clean_503(db, monkeypatch):
+    monkeypatch.setattr(ms, "analyze_prescription", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("secret Dolo text")))
+    r = as_user(ALICE).post("/api/v1/medication-safety/analyze", json={"medicines": [{"key": "m1", "name": "Dolo"}]})
+    assert r.status_code == 503 and "secret" not in r.text
