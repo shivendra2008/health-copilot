@@ -1,6 +1,6 @@
 """Typed-prescription analysis: resolve each medicine, run the deterministic engine, and return everything the
 UI needs to explain the result in plain language. Stateless: nothing is stored here."""
-from .catalogue import entry_brief, resolve
+from .catalogue import entry_brief, resolve, verify
 from .dose import doses_per_day, units_per_dose
 from .engine import run_check
 from .parser import decode_frequency, decode_timing
@@ -31,6 +31,7 @@ def analyze(medicines: list[dict], patient: dict | None) -> dict:
             "frequency_info": decode_frequency(m.get("frequency")), "timing_info": decode_timing(m.get("timing")),
             "units_per_dose": units_per_dose(m.get("dosage")), "doses_per_day": doses_per_day(m.get("frequency")),
             "resolution": res, "catalogue_entry": entry,
+            "verification": verify(m["name"], m.get("strength"), m.get("raw"), res),
         })
     result = run_check(engine_meds, patient)
     return {**result, "medicines": views}

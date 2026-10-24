@@ -246,7 +246,7 @@ def test_parse_and_analyze_are_stateless_and_need_login(db):
     assert a.status_code == 200
     body = a.json()
     assert body["summary"]["by_tier"]["act"] >= 1 and body["medicines"][0]["frequency_info"]["meaning"] == "three_times_daily"
-    assert db.tables == before  # nothing was written anywhere
+    assert {k: v for k, v in db.tables.items() if v} == {k: v for k, v in before.items() if v}  # nothing was written anywhere
 
 
 def test_analyze_validates_input(db):

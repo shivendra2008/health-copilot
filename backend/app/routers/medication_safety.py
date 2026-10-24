@@ -17,13 +17,16 @@ from ..config import get_settings
 from ..deps import Pagination, get_db, owned_document
 from ..errors import ApiError
 from ..ratelimit import check_rate_limit
+from ..schemas.care import AlternativesRequest
 from ..schemas.med_safety import (AnalyzeRequest, CheckRequest, ConfirmedMedicationPatch, EDITABLE_FIELDS, ExplainRequest,
                                   ManualMedicationRequest, ParseRequest, ResolveBrandRequest, SaveReportRequest)
 from ..services.groq_client import LLMError, chat_json
 from ..services.med_safety import catalogue as cat
+from ..services.med_safety import allergy, alternatives, care, kidney, schedule
 from ..services.med_safety.analysis import analyze as analyze_prescription
 from ..services.med_safety.engine import run_check, ruleset
 from ..services.med_safety.parser import parse_prescription
+from ..services.med_safety.timeline import build_timeline
 from ..services.med_safety.explain import (EXPLAIN_SCHEMA, explain_prompt, numbers_are_grounded, plain_english)
 
 log = logging.getLogger("healthcopilot.medsafety")
@@ -118,15 +121,48 @@ def _patient_dict(body) -> dict:
     return {"age_years": p.age_years, "weight_kg": p.weight_kg, "kidney": p.kidney}
 
 
+def _with_allergies(user_id: str, patient: dict) -> dict:
+    """Adds the person's allergy list to the patient context. If the list cannot be read the check FAILS rather than
+    running without it (a missing allergy must never look like 'no allergy')."""
+    try:
+        patient["allergies"] = allergy.load(get_db(), user_id)
+    except Exception as exc:  # noqa: BLE001
+        log.error("allergy list unavailable: %s", type(exc).__name__)
+        raise ApiError(503, "check_failed", "The safety check could not be completed. Your documents are not affected. Please retry.")
+    return patient
+
+
+def _kidney_from_labs(user_id: str, patient: dict) -> dict | None:
+    """When kidney function was left as unknown, use the user's latest kidney lab result (if there is a usable one)
+    and say where it came from. A value the person typed is never overridden. Never blocks the check."""
+    if patient["kidney"] != "unknown":
+        return None
+    try:
+        k = kidney.latest_kidney(get_db(), user_id)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("kidney lookup skipped: %s", type(exc).__name__)
+        return None
+    if k["status"] == "unknown" or k["stale"]:
+        return None
+    patient["kidney"] = k["status"]
+    return {k2: k[k2] for k2 in ("status", "egfr", "method", "observed_date", "document_id", "threshold", "unit")}
+
+
 @router.post("/analyze")
 def analyze_typed(body: AnalyzeRequest, user: CurrentUser = Depends(get_current_user)):
     """Resolve brands, run the deterministic rules and return a plain-language-ready analysis. Nothing is stored."""
     check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing * 3)
+    patient = _with_allergies(user.id, _patient_dict(body))
+    lab = _kidney_from_labs(user.id, patient)
     try:
-        return analyze_prescription([m.model_dump() for m in body.medicines], _patient_dict(body))
+        result = analyze_prescription([m.model_dump() for m in body.medicines], patient)
     except Exception as exc:  # noqa: BLE001
         log.error("analysis failed: %s", type(exc).__name__)
         raise ApiError(503, "check_failed", "The safety check could not be completed. Your documents are not affected. Please retry.")
+    if lab:
+        result["patient"]["kidney_source"] = lab
+        result["limitations"] = [*result["limitations"], "kidney_from_lab_estimate"]
+    return result
 
 
 @router.post("/reports/save", status_code=201)
@@ -137,8 +173,9 @@ def save_typed_report(body: SaveReportRequest, user: CurrentUser = Depends(get_c
     check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing)
     db = get_db()
     doc_id = owned_document(db, body.document_id, user.id, "id")["id"] if body.document_id else None
+    patient = _with_allergies(user.id, _patient_dict(body))
     try:
-        a = analyze_prescription([m.model_dump() for m in body.medicines], _patient_dict(body))
+        a = analyze_prescription([m.model_dump() for m in body.medicines], patient)
     except Exception as exc:  # noqa: BLE001
         log.error("analysis failed: %s", type(exc).__name__)
         raise ApiError(503, "check_failed", "The safety check could not be completed. Please retry.")
@@ -156,6 +193,108 @@ def save_typed_report(body: SaveReportRequest, user: CurrentUser = Depends(get_c
     audit(db, user.id, "medsafety.checked", "report", saved["id"],
           {"source": "typed", "medicines": len(snapshot), "findings": a["summary"]["total_findings"]})
     return _with_labels(saved)
+
+
+# ----------------------------------------------------------------------------- kidney function
+@router.get("/kidney")
+def kidney_overview(user: CurrentUser = Depends(get_current_user)):
+    """Kidney function from the user's confirmed lab results, plus the most recent medication re-check."""
+    db = get_db()
+    status = kidney.latest_kidney(db, user.id)
+    last = None
+    try:
+        rows = (db.table("kidney_rechecks").select("*").eq("user_id", user.id).order("created_at", desc=True).limit(1).execute().data)
+        last = rows[0] if rows else None
+    except Exception as exc:  # noqa: BLE001 — migration 0006 may not be applied yet
+        log.info("kidney_rechecks unavailable: %s", type(exc).__name__)
+    return {"kidney": status, "last_recheck": last, "ruleset_label": ruleset()["label"]}
+
+
+@router.post("/kidney/recheck")
+@guarded
+def kidney_recheck(user: CurrentUser = Depends(get_current_user)):
+    """Re-evaluate the kidney-related rules for the user's active medicines now (also runs after a lab report is confirmed)."""
+    check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing)
+    db = get_db()
+    r = kidney.recheck(db, user.id)
+    audit(db, user.id, "medsafety.kidney_recheck", "kidney", None, {"status": r["kidney"]["status"], "findings": len(r["findings"])})
+    return r
+
+
+@router.get("/kidney/rechecks")
+@guarded
+def kidney_history(p: Pagination = Depends(), user: CurrentUser = Depends(get_current_user)):
+    res = (get_db().table("kidney_rechecks").select("*", count="exact").eq("user_id", user.id)
+           .order("created_at", desc=True).range(*p.range).execute())
+    return {"items": res.data, "total": res.count or 0, "limit": p.limit, "offset": p.offset}
+
+
+# ----------------------------------------------------------------------------- medicine calendar
+@router.get("/schedule")
+def medicine_schedule(user: CurrentUser = Depends(get_current_user)):
+    """Dose slots worked out from the frequency, duration and date written on the user's confirmed prescriptions.
+    Medicines that match a recorded allergy are flagged and get no reminders. Read-only."""
+    check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing * 3)
+    db = get_db()
+    rows = care.medication_rows(db, user.id)
+    try:
+        allergies = allergy.load(db, user.id)
+        alerts = care.screen_medicines([{"id": r["id"], "name": r["name"], "strength": r.get("strength")} for r in rows], allergies)["alerts"] if allergies else []
+        out = schedule.build_schedule(rows, allergy_alert_ids={a["medicine"]["id"] for a in alerts})
+    except Exception as exc:  # noqa: BLE001
+        log.error("schedule failed: %s", type(exc).__name__)
+        raise ApiError(503, "check_failed", "The medicine calendar could not be built. Your documents are not affected. Please retry.")
+    out["allergy_alerts"] = alerts
+    return out
+
+
+# ----------------------------------------------------------------------------- alternatives
+@router.post("/alternatives")
+def medicine_alternatives(body: AlternativesRequest, user: CurrentUser = Depends(get_current_user)):
+    """Alternatives for a medicine the pharmacy does not have: same-composition brands from the catalogue, plus optional
+    AI suggestions that are re-checked against the person's allergies, other active medicines and kidney function."""
+    check_rate_limit(user.id, "chat" if body.use_ai else "medsafety", get_settings().rate_limit_chat)
+    db = get_db()
+    try:
+        allergies = allergy.load(db, user.id)
+        active, _ = kidney.active_medicines(db, user.id)
+        k = kidney.latest_kidney(db, user.id)
+    except Exception as exc:  # noqa: BLE001
+        log.error("alternatives context failed: %s", type(exc).__name__)
+        raise ApiError(503, "check_failed", "Alternatives could not be checked against your records. Please retry.")
+    patient = {"allergies": allergies, "kidney": k["status"] if k["status"] != "unknown" and not k["stale"] else "unknown"}
+    model = {}
+
+    def ai_call(system: str, user_json: str) -> dict:
+        raw, model["name"] = chat_json(system, user_json, "alternatives", alternatives.AI_SCHEMA, temperature=0.2, max_tokens=900, max_wait=20.0)
+        return raw
+
+    out = alternatives.build_alternatives(body.name, body.strength, care.engine_meds(active), allergies, patient,
+                                          ai_call if body.use_ai else None, body.language)
+    out["ai"]["model"] = model.get("name")
+    audit(db, user.id, "medsafety.alternatives", "medicine", None, {"ai": out["ai"]["status"], "found": len(out["same_composition"])})
+    return out
+
+
+# ----------------------------------------------------------------------------- cross-prescription timeline
+@router.get("/timeline")
+def medication_timeline(user: CurrentUser = Depends(get_current_user)):
+    """All medicines from the user's CONFIRMED documents on one timeline, with duplicates and overlaps between different
+    prescriptions flagged. Read-only; computed on request from the medications table."""
+    check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing * 3)
+    rows = (get_db().table("medications")
+            .select("id,document_id,name,strength,dosage,frequency,duration,authored_date,"
+                    "documents(file_name,doc_type,source_clinician,source_facility,document_date)")
+            .eq("user_id", user.id).order("authored_date").limit(500).execute().data)
+    try:
+        out = build_timeline(rows)
+        allergies = allergy.load(get_db(), user.id)
+        out["allergy_alerts"] = (care.screen_medicines([{"id": r["id"], "name": r["name"], "strength": r.get("strength")} for r in rows], allergies)["alerts"]
+                                 if allergies else [])
+        return out
+    except Exception as exc:  # noqa: BLE001
+        log.error("timeline failed: %s", type(exc).__name__)
+        raise ApiError(503, "check_failed", "The medication timeline could not be built. Your documents are not affected. Please retry.")
 
 
 # ----------------------------------------------------------------------------- confirmed medicines
@@ -292,7 +431,7 @@ def check(body: CheckRequest, user: CurrentUser = Depends(get_current_user)):
         raise ApiError(409, "no_confirmed_medications",
                        "There are no confirmed medicines to check yet. Review and confirm your medicines first.")
 
-    patient = {"adult": _adult(db, user.id)}
+    patient = _with_allergies(user.id, {"adult": _adult(db, user.id)})
     try:
         result = run_check(meds, patient)
     except Exception as exc:  # noqa: BLE001 — engine bugs must not leak details or affect anything else
