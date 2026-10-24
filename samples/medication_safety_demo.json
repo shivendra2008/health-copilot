@@ -1,0 +1,32 @@
+{
+  "description": "Expected Medication Safety outcome for samples/prescription_medication_safety_demo.pdf (fictional data). 'confirmed' is what the user has reviewed and confirmed in the app; 'resolution' shows how each brand resolves. Crocin is deliberately ambiguous and Zyxotab deliberately unknown.",
+  "patient": {"adult": true},
+  "confirmed": [
+    {"name": "Dolo 650 mg", "strength": "650 mg", "dosage": "1 tablet", "frequency": "1-1-1-1"},
+    {"name": "Combiflam", "strength": null, "dosage": "1 tablet", "frequency": "TDS"},
+    {"name": "Warfarin", "strength": "5 mg", "dosage": "1 tablet", "frequency": "OD"},
+    {"name": "Voveran", "strength": "50 mg", "dosage": "1 tablet", "frequency": "BD"},
+    {"name": "Zyxotab", "strength": "20 mg", "dosage": "1 capsule", "frequency": "OD"},
+    {"name": "Crocin", "strength": null, "dosage": "1 tablet", "frequency": "SOS"}
+  ],
+  "expected_resolution": {
+    "Dolo 650 mg": {"status": "resolved", "catalogue_id": "br_dolo_650"},
+    "Combiflam": {"status": "resolved", "catalogue_id": "br_combiflam"},
+    "Warfarin": {"status": "resolved", "catalogue_id": "gen_warfarin"},
+    "Voveran": {"status": "resolved", "catalogue_id": "br_voveran_50"},
+    "Zyxotab": {"status": "unresolved", "catalogue_id": null},
+    "Crocin": {"status": "ambiguous", "catalogue_id": null, "candidates": ["br_crocin_500", "br_crocin_650"]}
+  },
+  "expected_findings": [
+    {"type": "duplicate_ingredient", "severity": "high", "status": "potential_issue", "rule": "R-DUP-ING", "medicines": ["Combiflam", "Dolo 650 mg"]},
+    {"type": "therapeutic_duplicate", "severity": "high", "status": "potential_issue", "rule": "R-DUP-CLASS-NSAID", "medicines": ["Combiflam", "Voveran 50 mg"]},
+    {"type": "interaction", "severity": "high", "status": "potential_issue", "rule": "R-INT-001", "medicines": ["Combiflam", "Warfarin 5 mg"]},
+    {"type": "interaction", "severity": "high", "status": "potential_issue", "rule": "R-INT-001", "medicines": ["Voveran 50 mg", "Warfarin 5 mg"]},
+    {"type": "unresolved_medicine", "severity": "info", "status": "needs_confirmation", "rule": null, "medicines": ["Crocin"]},
+    {"type": "unresolved_medicine", "severity": "info", "status": "needs_confirmation", "rule": null, "medicines": ["Zyxotab 20 mg"]}
+  ],
+  "expected_absent": [
+    "No dose_concern: Dolo 650 x4 + Combiflam 325 x3 = 3575 mg/day, under the 4000 mg limit",
+    "No finding mentions Crocin or Zyxotab as a duplicate or interaction: they are unresolved, never guessed"
+  ]
+}

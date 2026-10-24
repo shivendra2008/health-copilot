@@ -1,0 +1,90 @@
+{
+  "version": "demo-0.1.0",
+  "label": "Demo-curated ruleset. Small and NOT comprehensive. Every rule is pending pharmacist review.",
+  "curated_on": "2026-10-24",
+  "default_next_step": "consult_clinician",
+  "duplicate_ingredient": {
+    "id": "R-DUP-ING",
+    "default_severity": "moderate",
+    "severity_overrides": {"paracetamol": "high"},
+    "source": {"type": "software_rule", "citation": "Same active ingredient appears in more than one listed medicine (software check against the demo catalogue)."},
+    "review_status": "pending_pharmacist_review"
+  },
+  "class_duplicates": [
+    {
+      "id": "R-DUP-CLASS-NSAID", "class": "nsaid", "severity": "high",
+      "title": "Two or more NSAID pain relievers listed",
+      "explanation": "Different NSAID (non-steroidal anti-inflammatory) medicines are listed together. Combining NSAIDs can raise the chance of stomach bleeding and kidney problems without adding extra benefit.",
+      "source": {"type": "demo_curated", "citation": "General NSAID product labelling and standard interaction references (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    }
+  ],
+  "interactions": [
+    {
+      "id": "R-INT-001", "a": {"classes": ["anticoagulant"]}, "b": {"classes": ["nsaid"]}, "severity": "high",
+      "title": "Warfarin with an NSAID",
+      "explanation": "NSAIDs taken with warfarin can increase the risk of bleeding, including bleeding in the stomach.",
+      "source": {"type": "demo_curated", "citation": "Warfarin and NSAID product labelling, bleeding-risk warnings (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    },
+    {
+      "id": "R-INT-002", "a": {"classes": ["anticoagulant"]}, "b": {"ingredients": ["aspirin"]}, "severity": "high",
+      "title": "Warfarin with aspirin",
+      "explanation": "Aspirin taken with warfarin can increase the risk of bleeding.",
+      "source": {"type": "demo_curated", "citation": "Warfarin and aspirin product labelling, bleeding-risk warnings (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    },
+    {
+      "id": "R-INT-003", "a": {"ingredients": ["sildenafil"]}, "b": {"classes": ["nitrate"]}, "severity": "critical",
+      "title": "Sildenafil with a nitrate medicine",
+      "explanation": "Sildenafil together with nitrate medicines (such as isosorbide mononitrate) can cause a sudden, large drop in blood pressure. This combination is listed as contraindicated in product labelling.",
+      "source": {"type": "demo_curated", "citation": "Sildenafil product labelling, contraindication with nitrates (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    },
+    {
+      "id": "R-INT-004", "a": {"ingredients": ["clarithromycin"]}, "b": {"ingredients": ["atorvastatin"]}, "severity": "high",
+      "title": "Clarithromycin with atorvastatin",
+      "explanation": "Clarithromycin can raise the level of atorvastatin in the blood, which may increase the risk of muscle problems.",
+      "source": {"type": "demo_curated", "citation": "Atorvastatin and clarithromycin product labelling, CYP3A4 interaction (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    },
+    {
+      "id": "R-INT-005", "a": {"classes": ["anticoagulant"]}, "b": {"ingredients": ["clarithromycin"]}, "severity": "high",
+      "title": "Warfarin with clarithromycin",
+      "explanation": "Clarithromycin can strengthen the blood-thinning effect of warfarin, which may increase the risk of bleeding.",
+      "source": {"type": "demo_curated", "citation": "Warfarin product labelling, antibiotic interactions (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    },
+    {
+      "id": "R-INT-006", "a": {"classes": ["arb"]}, "b": {"classes": ["k_sparing_diuretic"]}, "severity": "moderate",
+      "title": "Telmisartan with spironolactone",
+      "explanation": "Medicines from these two groups can both raise potassium in the blood. High potassium can affect the heart rhythm, so it is usually monitored with blood tests.",
+      "source": {"type": "demo_curated", "citation": "Telmisartan and spironolactone product labelling, hyperkalaemia warnings (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    },
+    {
+      "id": "R-INT-007", "a": {"classes": ["arb"]}, "b": {"classes": ["nsaid"]}, "severity": "moderate",
+      "title": "Telmisartan with an NSAID",
+      "explanation": "NSAIDs can reduce the blood-pressure-lowering effect of telmisartan and may affect kidney function, especially if the person is dehydrated or older.",
+      "source": {"type": "demo_curated", "citation": "Telmisartan and NSAID product labelling, renal and antihypertensive effect warnings (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    },
+    {
+      "id": "R-INT-008", "a": {"ingredients": ["aspirin"]}, "b": {"ingredients": ["ibuprofen"]}, "severity": "moderate",
+      "title": "Aspirin with ibuprofen",
+      "explanation": "Ibuprofen can interfere with the heart-protective effect of low-dose aspirin, and the two together can increase the chance of stomach irritation or bleeding.",
+      "source": {"type": "demo_curated", "citation": "Aspirin and ibuprofen product labelling and regulatory advice (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    }
+  ],
+  "dose_rules": [
+    {
+      "id": "R-DOSE-001", "ingredient": "paracetamol", "max_daily_mg_adult": 4000, "severity": "high",
+      "title": "Total daily paracetamol may be above the usual adult limit",
+      "explanation": "The paracetamol added up across all listed medicines (including combination products) is higher than the commonly cited adult maximum of 4,000 mg per day. Too much paracetamol can harm the liver.",
+      "source": {"type": "demo_curated", "citation": "Paracetamol product labelling, usual adult maximum daily dose (citation to be confirmed by a pharmacist)."},
+      "review_status": "pending_pharmacist_review", "curated_on": "2026-10-24"
+    }
+  ],
+  "limitations": ["limited_ruleset", "demo_catalogue", "no_special_population_dosing", "not_medical_advice"]
+}
