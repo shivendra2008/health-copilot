@@ -8,6 +8,7 @@ _FREQ_WORDS = {
     "od": 1, "qd": 1, "o.d": 1, "once daily": 1, "once a day": 1, "once": 1,
     "bd": 2, "bid": 2, "b.d": 2, "twice daily": 2, "twice a day": 2, "twice": 2,
     "tds": 3, "tid": 3, "t.d.s": 3, "thrice daily": 3, "thrice a day": 3, "three times a day": 3, "three times daily": 3,
+    "hs": 1, "nocte": 1, "at bedtime": 1, "at bed time": 1, "at night": 1,
     "qid": 4, "qds": 4, "four times a day": 4, "four times daily": 4,
 }
 

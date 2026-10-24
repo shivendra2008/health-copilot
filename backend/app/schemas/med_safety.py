@@ -63,3 +63,36 @@ class CheckRequest(_Req):
 
 class ExplainRequest(_Req):
     language: Lang = "en"
+
+
+class ParseRequest(_Req):
+    text: str = Field(min_length=1, max_length=6000)
+
+
+class AnalyzeMedicine(_Req):
+    key: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=200)
+    strength: str | None = Field(default=None, max_length=80)
+    dosage: str | None = Field(default=None, max_length=120)
+    frequency: str | None = Field(default=None, max_length=120)
+    timing: str | None = Field(default=None, max_length=60)
+    duration: str | None = Field(default=None, max_length=60)
+    catalogue_id: str | None = Field(default=None, max_length=80)
+    resolution_choice: Literal["select", "unresolved"] | None = None
+
+    _n = field_validator("strength", "dosage", "frequency", "timing", "duration", mode="before")(_blank_to_none)
+
+
+class PatientIn(_Req):
+    age_years: int | None = Field(default=None, ge=0, le=120)
+    weight_kg: float | None = Field(default=None, gt=0, le=400)
+    kidney: Literal["normal", "reduced", "unknown"] = "unknown"
+
+
+class AnalyzeRequest(_Req):
+    medicines: list[AnalyzeMedicine] = Field(min_length=1, max_length=30)
+    patient: PatientIn = PatientIn()
+
+
+class SaveReportRequest(AnalyzeRequest):
+    document_id: str | None = None

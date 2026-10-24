@@ -122,7 +122,9 @@ def test_clean_list_returns_no_findings_but_carries_limitations():
 
 def test_missing_details_are_listed():
     r = run_check([M("1", "Telma 40", "br_telma_40")])
-    assert r["missing_information"][0]["missing"] == ["strength", "dosage", "frequency"]
+    assert r["missing_information"][0]["missing"] == ["dosage", "frequency"]  # "Telma 40" already defines the strength
+    g = run_check([M("1", "Telmisartan", "gen_telmisartan")])
+    assert g["missing_information"][0]["missing"] == ["strength", "dosage", "frequency"]  # a generic name does not
 
 
 # ----------------------------------------------------------------------------- dose check
@@ -143,11 +145,14 @@ def test_dose_total_under_limit_is_not_flagged():
     assert not [x for x in r["findings"] if x["type"] == "dose_concern"]
 
 
-def test_dose_check_needs_known_adult():
-    for patient in ({"adult": None}, {"adult": False}, {}):
+def test_dose_check_needs_known_adult_or_child_weight():
+    for patient in ({"adult": None}, {}):
         r = run_check([P("1", "Dolo 650", "br_dolo_650", "6", "QID")], patient)
         assert not [x for x in r["findings"] if x["type"] == "dose_concern"]
         assert any("patient_age" in x["missing"] for x in r["missing_information"])
+    child = run_check([P("1", "Dolo 650", "br_dolo_650", "6", "QID")], {"adult": False})  # age known, weight not
+    assert not [x for x in child["findings"] if x["type"] == "dose_concern"]
+    assert any("patient_weight" in x["missing"] for x in child["missing_information"])
 
 
 def test_dose_check_with_missing_frequency_never_guesses():
@@ -212,3 +217,77 @@ def test_search_is_prefix_first_and_bounded():
 
 def test_resolved_status_constants():
     assert RESOLVED_STATUSES == {"resolved", "user_selected"}
+
+
+# ----------------------------------------------------------------------------- patient-specific limits
+def dose_findings(r):
+    return [f for f in r["findings"] if f["type"] == "dose_concern" and f["severity"] != "info"]
+
+
+def test_adult_under_50kg_uses_weight_based_paracetamol_limit():
+    meds = [P("1", "Dolo 650", "br_dolo_650", "1", "QID"), P("2", "Sumo", "br_sumo", "1", "TDS")]  # 3575 mg/day
+    heavy = run_check(meds, {"age_years": 40, "weight_kg": 70})
+    light = run_check(meds, {"age_years": 40, "weight_kg": 48})
+    assert not dose_findings(heavy)
+    f = dose_findings(light)[0]
+    assert f["evidence"]["rule_id"] == "R-DOSE-002" and f["evidence"]["limit_mg"] == 2880 and f["evidence"]["computed_daily_mg"] == 3575
+
+
+def test_child_paracetamol_limit_needs_weight_and_uses_it():
+    meds = [P("1", "Calpol 500", "br_calpol_500", "1", "QID")]  # 2000 mg/day
+    assert any("patient_weight" in x["missing"] for x in run_check(meds, {"age_years": 6})["missing_information"])
+    assert not dose_findings(run_check(meds, {"age_years": 6}))
+    f = dose_findings(run_check(meds, {"age_years": 6, "weight_kg": 15}))[0]  # limit 900 mg/day
+    assert f["evidence"]["rule_id"] == "R-DOSE-003" and f["evidence"]["limit_mg"] == 900
+    assert not dose_findings(run_check(meds, {"age_years": 6, "weight_kg": 40}))
+
+
+def test_adult_limit_is_never_applied_to_a_child_for_other_drugs():
+    r = run_check([P("1", "Brufen 400", "br_brufen_400", "1", "QID")], {"age_years": 8, "weight_kg": 25})
+    assert not dose_findings(r)
+
+
+def test_ibuprofen_and_diclofenac_daily_limits():
+    over_ibu = run_check([P("1", "Brufen 400", "br_brufen_400", "2", "QID")], {"age_years": 35})  # 3200
+    f = dose_findings(over_ibu)[0]
+    assert f["evidence"]["rule_id"] == "R-DOSE-004" and f["severity"] == "moderate" and f["tier"] == "know"
+    over_dic = run_check([P("1", "Voveran 50", "br_voveran_50", "1", "QID")], {"age_years": 35})  # 200
+    assert dose_findings(over_dic)[0]["evidence"]["rule_id"] == "R-DOSE-005"
+    assert not dose_findings(run_check([P("1", "Brufen 400", "br_brufen_400", "1", "TDS")], {"age_years": 35}))
+
+
+def test_combination_products_add_up_into_one_daily_total():
+    r = run_check([P("1", "Combiflam", "br_combiflam", "1", "TDS"), P("2", "Brufen 400", "br_brufen_400", "1", "TDS")], {"age_years": 30})
+    ibu = [t for t in r["ingredient_totals"] if t["ingredient"] == "ibuprofen"][0]
+    assert ibu["total_mg"] == 2400 and {p["mg_per_day"] for p in ibu["parts"]} == {1200}
+    assert not dose_findings(r)  # exactly at the limit is not over it
+
+
+def test_kidney_function_rules():
+    meds = [M("1", "Glycomet 500", "br_glycomet_500"), M("2", "Brufen 400", "br_brufen_400"), M("3", "Aldactone 25", "br_aldactone_25")]
+    reduced = run_check(meds, {"age_years": 60, "kidney": "reduced"})
+    got = {f["evidence"]["rule_id"] for f in reduced["findings"] if f["type"] == "patient_specific"}
+    assert got == {"R-PAT-001", "R-PAT-002", "R-PAT-003"}
+    normal = run_check(meds, {"age_years": 60, "kidney": "normal"})
+    assert not [f for f in normal["findings"] if f["type"] == "patient_specific"]
+    unknown = run_check(meds, {"age_years": 60})
+    assert not [f for f in unknown["findings"] if f["type"] == "patient_specific"]
+    assert sum("kidney_function" in x["missing"] for x in unknown["missing_information"]) == 3  # asked, not assumed
+
+
+def test_kidney_rule_ignores_unrelated_medicines():
+    r = run_check([M("1", "Telma 40", "br_telma_40")], {"age_years": 60, "kidney": "reduced"})
+    assert not [f for f in r["findings"] if f["type"] == "patient_specific"]
+
+
+def test_alerts_are_tiered_so_serious_ones_stand_out():
+    r = run_check([M("1", "Warfarin", "gen_warfarin"), M("2", "Voveran 50", "br_voveran_50"), M("3", "Telma 40", "br_telma_40"),
+                   M("4", "Mystery", None, status="unresolved")])
+    tiers = {f["title"]: f["tier"] for f in r["findings"]}
+    assert tiers["Warfarin with an NSAID"] == "act" and tiers["Telmisartan with an NSAID"] == "know"
+    assert r["summary"]["by_tier"] == {"act": 1, "know": 1, "fyi": 0}  # the unresolved notice is not counted as an alert
+
+
+def test_strength_in_grams_is_flagged_not_converted():
+    r = run_check([P("1", "Paracetamol", "gen_paracetamol", "1", "QID", "1 g")], {"age_years": 30})
+    assert not r["ingredient_totals"] and any(x["missing"][0] == "strength" for x in r["missing_information"] if x["medicine"])
