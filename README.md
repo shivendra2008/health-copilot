@@ -1,4 +1,4 @@
-# Health Copilot (MedMitra)
+# MedMitra
 
 **Upload a prescription and find out, in plain language, whether the medicines on it could hurt you.**
 
