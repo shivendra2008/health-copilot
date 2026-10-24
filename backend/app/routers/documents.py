@@ -15,7 +15,7 @@ from ..schemas.api import (ConfirmResponse, DocumentOut, ExtractionHistoryItem, 
 from ..schemas.extraction import SECTIONS, ExtractionData
 from ..services.files import validate_upload
 from ..services.groq_client import LLMError
-from ..services.med_safety import kidney
+from ..services.med_safety import allergy, care, kidney
 from ..services.pipeline import IN_PROGRESS, is_stale, now_iso, process_document
 from ..services.records import replace_records
 from ..services.summary import derived_comparisons, generate_summary
@@ -229,6 +229,18 @@ def _kidney_recheck(db, user_id: str, doc_id: str, data: ExtractionData) -> dict
             "changed": r["changed"], "previous_status": r["previous_status"]}
 
 
+def _allergy_alerts(db, user_id: str, doc_id: str) -> list[dict] | None:
+    """Medicines just confirmed that match a recorded allergy. Isolated: failure never blocks confirming."""
+    try:
+        allergies = allergy.load(db, user_id)
+        if not allergies:
+            return None
+        return care.medication_alerts(db, user_id, allergies, document_id=doc_id)["alerts"][:10] or None
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("healthcopilot").warning("allergy screen skipped: %s", type(e).__name__)
+        return None
+
+
 @router.post("/{doc_id}/confirm", response_model=ConfirmResponse)
 def confirm(doc_id: str, user: CurrentUser = Depends(get_current_user)):
     db = get_db()
@@ -253,7 +265,8 @@ def confirm(doc_id: str, user: CurrentUser = Depends(get_current_user)):
         "status_detail": None,
     }).eq("id", doc_id).eq("user_id", user.id).execute().data[0]
     audit(db, user.id, "extraction.confirmed", "extraction", ex["id"], counts)
-    return ConfirmResponse(document=DocumentOut(**row), records=counts, kidney_recheck=_kidney_recheck(db, user.id, doc_id, data))
+    return ConfirmResponse(document=DocumentOut(**row), records=counts, kidney_recheck=_kidney_recheck(db, user.id, doc_id, data),
+                           allergy_alerts=_allergy_alerts(db, user.id, doc_id))
 
 
 @router.post("/{doc_id}/summary", response_model=ExtractionOut)

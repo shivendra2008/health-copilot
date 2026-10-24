@@ -6,7 +6,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from .config import get_settings
 from .errors import install_error_handlers
-from .routers import assistant, auth_routes, documents, medication_safety, profile, records
+from .routers import allergies, assistant, auth_routes, documents, medication_safety, profile, records
 from .services.ocr import ocr_available
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -39,5 +39,5 @@ def health():
             "ai_model": s.groq_model, "ocr_available": ocr_available()}
 
 
-for r in (auth_routes.router, documents.router, records.router, profile.router, assistant.router, medication_safety.router):
+for r in (auth_routes.router, documents.router, records.router, profile.router, assistant.router, medication_safety.router, allergies.router):
     app.include_router(r)

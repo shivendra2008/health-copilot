@@ -4,6 +4,7 @@ import json
 from functools import lru_cache
 from itertools import combinations
 
+from . import allergy
 from .catalogue import DATA, catalogue, entry_brief, parse_strength
 from .dose import doses_per_day, units_per_dose
 
@@ -11,7 +12,10 @@ SEVERITY_ORDER = {"critical": 0, "high": 1, "moderate": 2, "low": 3, "info": 4}
 TIER = {"critical": "act", "high": "act", "moderate": "know", "low": "fyi", "info": "fyi"}
 # How well a finding is backed. Ranking uses severity first, then this, so a serious concern that rests on a matched,
 # cited rule appears above an equally serious one that still needs details (and both above informational notices).
-EVIDENCE_ORDER = {"reviewed": 0, "rule_based": 1, "incomplete": 2, "none": 3}
+EVIDENCE_ORDER = {"user_reported": 0, "reviewed": 1, "rule_based": 2, "incomplete": 3, "none": 4}
+# A recorded allergy is the person's own statement, so it is the strongest evidence there is.
+_ALLERGY_RULE = {"id": "R-ALLERGY", "source": {"type": "user_reported", "citation": "Allergy recorded in your allergy list."},
+                 "review_status": "user_reported"}
 RESOLVED_STATUSES = {"resolved", "user_selected"}
 
 
@@ -50,7 +54,7 @@ def evidence_level(status: str, evidence: dict | None) -> str:
         return "none"
     if status != "potential_issue" or evidence.get("complete") is False:
         return "incomplete"
-    return "reviewed" if evidence.get("review_status") == "pharmacist_reviewed" else "rule_based"
+    return {"user_reported": "user_reported", "pharmacist_reviewed": "reviewed"}.get(evidence.get("review_status"), "rule_based")
 
 
 def _finding(fid: str, ftype: str, severity: str, status: str, meds: list[dict], title: str, explanation: str,
@@ -78,7 +82,8 @@ def patient_context(patient: dict | None) -> dict:
     if adult is None and age is not None:
         adult = age >= 18
     return {"adult": adult, "age_years": age, "weight_kg": p.get("weight_kg"),
-            "kidney": p.get("kidney") if p.get("kidney") in ("normal", "reduced") else "unknown"}
+            "kidney": p.get("kidney") if p.get("kidney") in ("normal", "reduced") else "unknown",
+            "allergies": p.get("allergies") or []}
 
 
 def run_check(meds: list[dict], patient: dict | None = None) -> dict:
@@ -91,10 +96,11 @@ def run_check(meds: list[dict], patient: dict | None = None) -> dict:
 
     for m in meds:
         uncertain = set(m.get("uncertain_fields") or [])
-        entry = cat["by_id"].get(m.get("catalogue_id") or "")
+        # `entry` lets a caller supply a composition directly (used for alternative-medicine candidates).
+        entry = m.get("entry") or cat["by_id"].get(m.get("catalogue_id") or "")
         if "name" in uncertain:
             reason = "marked_uncertain"
-        elif m.get("resolution_status") not in RESOLVED_STATUSES:
+        elif m.get("resolution_status") not in RESOLVED_STATUSES and not m.get("entry"):
             reason = {"ambiguous": "ambiguous", "user_unresolved": "marked_unresolved"}.get(m.get("resolution_status"), "not_in_catalogue")
         elif entry is None:
             reason = "catalogue_changed"
@@ -161,6 +167,26 @@ def run_check(meds: list[dict], patient: dict | None = None) -> dict:
             for m in carriers:
                 missing.append({"medicine": _ref(m), "missing": ["kidney_function"], "reason": "kidney_function_matters"})
 
+    # --- recorded allergies ----------------------------------------------------------------------------------
+    allergy_info = None
+    if pt["allergies"]:
+        scr = allergy.screen(resolved, [m for m in meds if m["id"] in {u["medicine"]["id"] for u in unresolved}], pt["allergies"])
+        for h in scr["hits"]:
+            a, m = h["allergy"], h["medicine"]
+            sure = h["via"] != "name_text"
+            what = {"class": "belongs to the group you listed", "ingredient": "contains the ingredient you listed",
+                    "name_text": "has a name that matches what you listed"}[h["via"]]
+            react = f" (reaction you noted: {a['reaction']})" if a.get("reaction") else ""
+            findings.append(_finding(
+                f"allergy:{a['id']}:{m['id']}", "allergy", "critical" if a["severity"] == "severe" else "high",
+                "potential_issue" if sure else "needs_confirmation", [m], f"Possible allergy: {a['substance']}",
+                f"You listed an allergy to {a['substance']}{react}. {_label(m)} {what}"
+                + (f" ({', '.join(h['ingredients'])})." if h["ingredients"] else ". The medicine could not be identified, so this is a name match only.")
+                + " Do not take it until your doctor or pharmacist has confirmed it is safe for you.",
+                _evidence(_ALLERGY_RULE, allergy_id=a["id"], allergy_substance=a["substance"], matched_ingredients=h["ingredients"], via=h["via"])))
+        allergy_info = {"allergies": len(pt["allergies"]), "unchecked_medicines": [_ref(m) for m in scr["unchecked"]],
+                        "unmatched_allergies": [a["substance"] for a in pt["allergies"] if a["resolved"]["kind"] == "unmatched"]}
+
     # --- daily totals + dose limits that depend on the patient --------------------------------------------
     totals = _daily_totals(resolved)
     asked: set[str] = set()
@@ -214,6 +240,7 @@ def run_check(meds: list[dict], patient: dict | None = None) -> dict:
         "ruleset_version": rules["version"], "catalogue_version": cat["version"],
         "patient": {"adult": pt["adult"], "age_known": pt["age_years"] is not None, "weight_known": pt["weight_kg"] is not None,
                     "kidney": pt["kidney"]},
+        "allergy_check": allergy_info,
     }
 
 

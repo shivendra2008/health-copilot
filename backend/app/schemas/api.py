@@ -87,6 +87,8 @@ class ConfirmResponse(BaseModel):
     records: dict[str, int]
     # Present only when the confirmed document added a kidney result and the medication rules were re-checked.
     kidney_recheck: dict | None = None
+    # Medicines in the confirmed document that match a recorded allergy (empty/None when there is none).
+    allergy_alerts: list[dict] | None = None
 
 
 class ProfileOut(BaseModel):

@@ -17,11 +17,12 @@ from ..config import get_settings
 from ..deps import Pagination, get_db, owned_document
 from ..errors import ApiError
 from ..ratelimit import check_rate_limit
+from ..schemas.care import AlternativesRequest
 from ..schemas.med_safety import (AnalyzeRequest, CheckRequest, ConfirmedMedicationPatch, EDITABLE_FIELDS, ExplainRequest,
                                   ManualMedicationRequest, ParseRequest, ResolveBrandRequest, SaveReportRequest)
 from ..services.groq_client import LLMError, chat_json
 from ..services.med_safety import catalogue as cat
-from ..services.med_safety import kidney
+from ..services.med_safety import allergy, alternatives, care, kidney, schedule
 from ..services.med_safety.analysis import analyze as analyze_prescription
 from ..services.med_safety.engine import run_check, ruleset
 from ..services.med_safety.parser import parse_prescription
@@ -120,6 +121,17 @@ def _patient_dict(body) -> dict:
     return {"age_years": p.age_years, "weight_kg": p.weight_kg, "kidney": p.kidney}
 
 
+def _with_allergies(user_id: str, patient: dict) -> dict:
+    """Adds the person's allergy list to the patient context. If the list cannot be read the check FAILS rather than
+    running without it (a missing allergy must never look like 'no allergy')."""
+    try:
+        patient["allergies"] = allergy.load(get_db(), user_id)
+    except Exception as exc:  # noqa: BLE001
+        log.error("allergy list unavailable: %s", type(exc).__name__)
+        raise ApiError(503, "check_failed", "The safety check could not be completed. Your documents are not affected. Please retry.")
+    return patient
+
+
 def _kidney_from_labs(user_id: str, patient: dict) -> dict | None:
     """When kidney function was left as unknown, use the user's latest kidney lab result (if there is a usable one)
     and say where it came from. A value the person typed is never overridden. Never blocks the check."""
@@ -140,7 +152,7 @@ def _kidney_from_labs(user_id: str, patient: dict) -> dict | None:
 def analyze_typed(body: AnalyzeRequest, user: CurrentUser = Depends(get_current_user)):
     """Resolve brands, run the deterministic rules and return a plain-language-ready analysis. Nothing is stored."""
     check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing * 3)
-    patient = _patient_dict(body)
+    patient = _with_allergies(user.id, _patient_dict(body))
     lab = _kidney_from_labs(user.id, patient)
     try:
         result = analyze_prescription([m.model_dump() for m in body.medicines], patient)
@@ -161,8 +173,9 @@ def save_typed_report(body: SaveReportRequest, user: CurrentUser = Depends(get_c
     check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing)
     db = get_db()
     doc_id = owned_document(db, body.document_id, user.id, "id")["id"] if body.document_id else None
+    patient = _with_allergies(user.id, _patient_dict(body))
     try:
-        a = analyze_prescription([m.model_dump() for m in body.medicines], _patient_dict(body))
+        a = analyze_prescription([m.model_dump() for m in body.medicines], patient)
     except Exception as exc:  # noqa: BLE001
         log.error("analysis failed: %s", type(exc).__name__)
         raise ApiError(503, "check_failed", "The safety check could not be completed. Please retry.")
@@ -216,6 +229,53 @@ def kidney_history(p: Pagination = Depends(), user: CurrentUser = Depends(get_cu
     return {"items": res.data, "total": res.count or 0, "limit": p.limit, "offset": p.offset}
 
 
+# ----------------------------------------------------------------------------- medicine calendar
+@router.get("/schedule")
+def medicine_schedule(user: CurrentUser = Depends(get_current_user)):
+    """Dose slots worked out from the frequency, duration and date written on the user's confirmed prescriptions.
+    Medicines that match a recorded allergy are flagged and get no reminders. Read-only."""
+    check_rate_limit(user.id, "medsafety", get_settings().rate_limit_processing * 3)
+    db = get_db()
+    rows = care.medication_rows(db, user.id)
+    try:
+        allergies = allergy.load(db, user.id)
+        alerts = care.screen_medicines([{"id": r["id"], "name": r["name"], "strength": r.get("strength")} for r in rows], allergies)["alerts"] if allergies else []
+        out = schedule.build_schedule(rows, allergy_alert_ids={a["medicine"]["id"] for a in alerts})
+    except Exception as exc:  # noqa: BLE001
+        log.error("schedule failed: %s", type(exc).__name__)
+        raise ApiError(503, "check_failed", "The medicine calendar could not be built. Your documents are not affected. Please retry.")
+    out["allergy_alerts"] = alerts
+    return out
+
+
+# ----------------------------------------------------------------------------- alternatives
+@router.post("/alternatives")
+def medicine_alternatives(body: AlternativesRequest, user: CurrentUser = Depends(get_current_user)):
+    """Alternatives for a medicine the pharmacy does not have: same-composition brands from the catalogue, plus optional
+    AI suggestions that are re-checked against the person's allergies, other active medicines and kidney function."""
+    check_rate_limit(user.id, "chat" if body.use_ai else "medsafety", get_settings().rate_limit_chat)
+    db = get_db()
+    try:
+        allergies = allergy.load(db, user.id)
+        active, _ = kidney.active_medicines(db, user.id)
+        k = kidney.latest_kidney(db, user.id)
+    except Exception as exc:  # noqa: BLE001
+        log.error("alternatives context failed: %s", type(exc).__name__)
+        raise ApiError(503, "check_failed", "Alternatives could not be checked against your records. Please retry.")
+    patient = {"allergies": allergies, "kidney": k["status"] if k["status"] != "unknown" and not k["stale"] else "unknown"}
+    model = {}
+
+    def ai_call(system: str, user_json: str) -> dict:
+        raw, model["name"] = chat_json(system, user_json, "alternatives", alternatives.AI_SCHEMA, temperature=0.2, max_tokens=900, max_wait=20.0)
+        return raw
+
+    out = alternatives.build_alternatives(body.name, body.strength, care.engine_meds(active), allergies, patient,
+                                          ai_call if body.use_ai else None, body.language)
+    out["ai"]["model"] = model.get("name")
+    audit(db, user.id, "medsafety.alternatives", "medicine", None, {"ai": out["ai"]["status"], "found": len(out["same_composition"])})
+    return out
+
+
 # ----------------------------------------------------------------------------- cross-prescription timeline
 @router.get("/timeline")
 def medication_timeline(user: CurrentUser = Depends(get_current_user)):
@@ -227,7 +287,11 @@ def medication_timeline(user: CurrentUser = Depends(get_current_user)):
                     "documents(file_name,doc_type,source_clinician,source_facility,document_date)")
             .eq("user_id", user.id).order("authored_date").limit(500).execute().data)
     try:
-        return build_timeline(rows)
+        out = build_timeline(rows)
+        allergies = allergy.load(get_db(), user.id)
+        out["allergy_alerts"] = (care.screen_medicines([{"id": r["id"], "name": r["name"], "strength": r.get("strength")} for r in rows], allergies)["alerts"]
+                                 if allergies else [])
+        return out
     except Exception as exc:  # noqa: BLE001
         log.error("timeline failed: %s", type(exc).__name__)
         raise ApiError(503, "check_failed", "The medication timeline could not be built. Your documents are not affected. Please retry.")
@@ -367,7 +431,7 @@ def check(body: CheckRequest, user: CurrentUser = Depends(get_current_user)):
         raise ApiError(409, "no_confirmed_medications",
                        "There are no confirmed medicines to check yet. Review and confirm your medicines first.")
 
-    patient = {"adult": _adult(db, user.id)}
+    patient = _with_allergies(user.id, {"adult": _adult(db, user.id)})
     try:
         result = run_check(meds, patient)
     except Exception as exc:  # noqa: BLE001 — engine bugs must not leak details or affect anything else
