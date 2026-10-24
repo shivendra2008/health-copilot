@@ -321,3 +321,100 @@ export interface HealthStatus {
   ai_model: string;
   ocr_available: boolean;
 }
+
+// ---------------------------------------------------------------------------------- Medication Safety
+export type Severity = "critical" | "high" | "moderate" | "low" | "info";
+export type CurrentStatus = "current" | "past" | "unknown";
+export type ResolutionStatus = "resolved" | "ambiguous" | "unresolved" | "user_selected" | "user_unresolved";
+export type UncertainField = "name" | "strength" | "dosage" | "frequency" | "duration" | "route";
+
+export interface CatalogueEntry {
+  id: string;
+  name: string;
+  kind: "brand" | "generic";
+  form: string;
+  ingredients: { id: string; name: string; strength: { value: number; unit: string } | null }[];
+}
+
+export interface ConfirmedMedication {
+  id: string;
+  document_id: string | null;
+  name: string;
+  strength: string | null;
+  dosage: string | null;
+  frequency: string | null;
+  duration: string | null;
+  route: string | null;
+  instructions: string | null;
+  prescription_date: string | null;
+  current_status: CurrentStatus;
+  status_confirmed_at: string | null;
+  uncertain_fields: UncertainField[];
+  catalogue_id: string | null;
+  resolution_status: ResolutionStatus;
+  resolution_confidence: "high" | "medium" | "low" | "none" | "user_confirmed";
+  resolution_candidates: CatalogueEntry[];
+  catalogue_entry: CatalogueEntry | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MedRef {
+  id: string;
+  label: string;
+}
+
+export interface SafetyFinding {
+  id: string;
+  type: "duplicate_ingredient" | "therapeutic_duplicate" | "interaction" | "dose_concern" | "unresolved_medicine";
+  severity: Severity;
+  status: "potential_issue" | "needs_confirmation";
+  medicines: MedRef[];
+  title: string;
+  explanation: string;
+  next_step: "consult_clinician" | "confirm_medicine" | "complete_details";
+  evidence: {
+    rule_id: string;
+    source: { type: string; citation: string };
+    review_status: string;
+    curated_on: string;
+    ruleset_version: string;
+    matched_ingredients?: string[];
+    computed_daily_mg?: number;
+    limit_mg?: number;
+    complete?: boolean;
+  } | null;
+}
+
+export interface SafetyReport {
+  id: string;
+  source_type: "document" | "current_list";
+  document_id: string | null;
+  include_current: boolean;
+  ruleset_version: string;
+  catalogue_version: string;
+  ruleset_label: string;
+  catalogue_label: string;
+  medication_snapshot: Omit<ConfirmedMedication, "resolution_candidates" | "catalogue_entry" | "status_confirmed_at" | "created_at" | "updated_at">[];
+  findings: SafetyFinding[];
+  unresolved: { medicine: MedRef; reason: string }[];
+  missing_information: { medicine: MedRef | null; missing: string[]; reason: string }[];
+  limitations: string[];
+  summary: { total_findings: number; by_severity: Record<Severity, number>; medicines_checked: number; medicines_unresolved: number };
+  created_at: string;
+}
+
+export interface SafetyReportListItem {
+  id: string;
+  source_type: "document" | "current_list";
+  document_id: string | null;
+  summary: SafetyReport["summary"];
+  created_at: string;
+}
+
+export interface ExplainResult {
+  report_id: string;
+  language: Lang;
+  content: string;
+  generated_by: "assistant" | "deterministic";
+}

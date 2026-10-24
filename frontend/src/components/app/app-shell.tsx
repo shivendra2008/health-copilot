@@ -9,6 +9,7 @@ import {
   Menu,
   MessageSquareText,
   Settings,
+  ShieldCheck,
   Upload,
 } from "lucide-react";
 import Link from "next/link";
@@ -33,6 +34,7 @@ const NAV: { href: string; key: TKey; icon: React.ComponentType<{ className?: st
   { href: "/lab-results", key: "nav.labs", icon: FlaskConical },
   { href: "/timeline", key: "nav.timeline", icon: Activity },
   { href: "/assistant", key: "nav.assistant", icon: MessageSquareText },
+  { href: "/medication-safety", key: "nav.medsafety", icon: ShieldCheck },
   { href: "/settings", key: "nav.settings", icon: Settings },
 ];
 
@@ -69,6 +71,7 @@ const TABS: { href: string; key: TKey; icon: React.ComponentType<{ className?: s
   { href: "/lab-results", key: "nav.labsShort", icon: FlaskConical },
   { href: "/timeline", key: "nav.timelineShort", icon: Activity },
   { href: "/assistant", key: "nav.assistantShort", icon: MessageSquareText },
+  { href: "/medication-safety", key: "nav.medsafetyShort", icon: ShieldCheck },
 ];
 
 function MobileTabBar() {

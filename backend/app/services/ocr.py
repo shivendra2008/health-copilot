@@ -44,6 +44,7 @@ def _load():
                 text_recognition_model_name="en_PP-OCRv5_mobile_rec"
                 if get_settings().ocr_lang == "en" else None,
                 cpu_threads=get_settings().ocr_cpu_threads,
+                enable_mkldnn=False,  # Paddle 3.x oneDNN path crashes (NotImplementedError)
             )
             log.info("PaddleOCR loaded")
         except Exception as exc:  # noqa: BLE001
