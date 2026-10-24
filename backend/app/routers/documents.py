@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, Response, UploadFile
@@ -14,6 +15,7 @@ from ..schemas.api import (ConfirmResponse, DocumentOut, ExtractionHistoryItem, 
 from ..schemas.extraction import SECTIONS, ExtractionData
 from ..services.files import validate_upload
 from ..services.groq_client import LLMError
+from ..services.med_safety import kidney
 from ..services.pipeline import IN_PROGRESS, is_stale, now_iso, process_document
 from ..services.records import replace_records
 from ..services.summary import derived_comparisons, generate_summary
@@ -211,6 +213,22 @@ def correct_extraction(doc_id: str, body: ExtractionPatch, user: CurrentUser = D
     return _to_out(upd)
 
 
+def _kidney_recheck(db, user_id: str, doc_id: str, data: ExtractionData) -> dict | None:
+    """A new kidney result re-evaluates the kidney-related medication rules. Isolated on purpose: a failure here (for
+    example the migration 0006 not applied yet) must never block confirming a document."""
+    if not kidney.has_kidney_result(data.lab_results):
+        return None
+    try:
+        r = kidney.recheck(db, user_id, trigger_document_id=doc_id)
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("healthcopilot").warning("kidney recheck skipped: %s", type(e).__name__)
+        return None
+    k = r["kidney"]
+    return {"status": k["status"], "egfr": k["egfr"], "method": k["method"], "observed_date": k["observed_date"],
+            "reason": k["reason"], "medicines_checked": r["medicines_checked"], "findings": len(r["findings"]),
+            "changed": r["changed"], "previous_status": r["previous_status"]}
+
+
 @router.post("/{doc_id}/confirm", response_model=ConfirmResponse)
 def confirm(doc_id: str, user: CurrentUser = Depends(get_current_user)):
     db = get_db()
@@ -235,7 +253,7 @@ def confirm(doc_id: str, user: CurrentUser = Depends(get_current_user)):
         "status_detail": None,
     }).eq("id", doc_id).eq("user_id", user.id).execute().data[0]
     audit(db, user.id, "extraction.confirmed", "extraction", ex["id"], counts)
-    return ConfirmResponse(document=DocumentOut(**row), records=counts)
+    return ConfirmResponse(document=DocumentOut(**row), records=counts, kidney_recheck=_kidney_recheck(db, user.id, doc_id, data))
 
 
 @router.post("/{doc_id}/summary", response_model=ExtractionOut)

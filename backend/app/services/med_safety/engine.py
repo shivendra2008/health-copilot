@@ -9,6 +9,9 @@ from .dose import doses_per_day, units_per_dose
 
 SEVERITY_ORDER = {"critical": 0, "high": 1, "moderate": 2, "low": 3, "info": 4}
 TIER = {"critical": "act", "high": "act", "moderate": "know", "low": "fyi", "info": "fyi"}
+# How well a finding is backed. Ranking uses severity first, then this, so a serious concern that rests on a matched,
+# cited rule appears above an equally serious one that still needs details (and both above informational notices).
+EVIDENCE_ORDER = {"reviewed": 0, "rule_based": 1, "incomplete": 2, "none": 3}
 RESOLVED_STATUSES = {"resolved", "user_selected"}
 
 
@@ -40,11 +43,32 @@ def _side_matches(ingredients: set[str], side: dict) -> set[str]:
     return hit
 
 
+def evidence_level(status: str, evidence: dict | None) -> str:
+    """reviewed (a pharmacist signed the rule off) > rule_based (complete data matched a cited rule) >
+    incomplete (the rule matched but details were missing or a medicine needs confirming) > none (no rule involved)."""
+    if evidence is None:
+        return "none"
+    if status != "potential_issue" or evidence.get("complete") is False:
+        return "incomplete"
+    return "reviewed" if evidence.get("review_status") == "pharmacist_reviewed" else "rule_based"
+
+
 def _finding(fid: str, ftype: str, severity: str, status: str, meds: list[dict], title: str, explanation: str,
              evidence: dict | None, next_step: str = "consult_clinician") -> dict:
     return {"id": fid, "type": ftype, "severity": severity, "tier": TIER[severity], "status": status,
+            "evidence_level": evidence_level(status, evidence),
             "medicines": [_ref(m) for m in meds], "title": title, "explanation": explanation,
             "evidence": evidence, "next_step": next_step}
+
+
+def rank_findings(findings: list[dict]) -> list[dict]:
+    """Most urgent, best-supported first: severity, then evidence strength, then findings that involve more
+    medicines (a wider impact), then title for a stable order. Adds a 1-based `rank` to every finding."""
+    findings.sort(key=lambda f: (SEVERITY_ORDER[f["severity"]], EVIDENCE_ORDER[f["evidence_level"]],
+                                 -len(f["medicines"]), f["title"], f["id"]))
+    for i, f in enumerate(findings, 1):
+        f["rank"] = i
+    return findings
 
 
 def patient_context(patient: dict | None) -> dict:
@@ -174,7 +198,7 @@ def run_check(meds: list[dict], patient: dict | None = None) -> dict:
         if gaps and m["id"] not in have:
             missing.append({"medicine": _ref(m), "missing": gaps, "reason": "incomplete_details"})
 
-    findings.sort(key=lambda f: (SEVERITY_ORDER[f["severity"]], f["status"] != "potential_issue", f["title"]))
+    rank_findings(findings)
     by_sev = {k: sum(1 for f in findings if f["severity"] == k) for k in SEVERITY_ORDER}
     # Unresolved-medicine notices are shown with the identification step, so they don't count as alerts.
     alerts = [f for f in findings if f["type"] != "unresolved_medicine"]
@@ -251,4 +275,4 @@ def _ingredient_mg(m: dict, entry: dict, ing: str) -> float | None:
     return None
 
 
-__all__ = ["run_check", "ruleset", "entry_brief", "patient_context"]
+__all__ = ["run_check", "ruleset", "entry_brief", "patient_context", "rank_findings", "evidence_level"]

@@ -340,5 +340,17 @@
       "review_status": "pending_pharmacist_review",
       "curated_on": "2026-10-24"
     }
-  ]
+  ],
+  "kidney_function": {
+    "id": "R-KID-CFG",
+    "reduced_below_egfr": 60,
+    "egfr_unit": "mL/min/1.73 m²",
+    "max_result_age_days": 365,
+    "source": {
+      "type": "demo_curated",
+      "citation": "Reduced kidney function is commonly defined as eGFR below 60 mL/min/1.73 m² (KDIGO CKD guideline). eGFR may be calculated with the CKD-EPI 2021 creatinine equation. Threshold and age limit to be confirmed by a pharmacist or nephrologist."
+    },
+    "review_status": "pending_pharmacist_review",
+    "curated_on": "2026-10-24"
+  }
 }

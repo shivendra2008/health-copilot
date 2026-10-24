@@ -85,6 +85,8 @@ class SummaryRequest(BaseModel):
 class ConfirmResponse(BaseModel):
     document: DocumentOut
     records: dict[str, int]
+    # Present only when the confirmed document added a kidney result and the medication rules were re-checked.
+    kidney_recheck: dict | None = None
 
 
 class ProfileOut(BaseModel):

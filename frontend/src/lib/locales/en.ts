@@ -703,6 +703,7 @@ export const en = {
   "ms.missing.patient_weight": "Weight (add it above)",
   "ms.rep.sourceTyped": "Source: typed prescription",
   "ms.lim.limited_special_populations": "Dose limits cover only a few common medicines, for adults, or for children when the weight is given. Pregnancy and liver conditions are not covered.",
+  "ms.lim.kidney_from_lab_estimate": "Kidney function was taken from your latest lab result (eGFR, or calculated from creatinine). It is an estimate, not a diagnosis; a doctor decides what it means.",
 };
 
 export type TKey = keyof typeof en;

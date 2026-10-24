@@ -79,8 +79,9 @@ class AnalyzeMedicine(_Req):
     duration: str | None = Field(default=None, max_length=60)
     catalogue_id: str | None = Field(default=None, max_length=80)
     resolution_choice: Literal["select", "unresolved"] | None = None
+    raw: str | None = Field(default=None, max_length=200)  # the line as written, used only as brand-composition evidence
 
-    _n = field_validator("strength", "dosage", "frequency", "timing", "duration", mode="before")(_blank_to_none)
+    _n = field_validator("strength", "dosage", "frequency", "timing", "duration", "raw", mode="before")(_blank_to_none)
 
 
 class PatientIn(_Req):
