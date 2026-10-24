@@ -10,7 +10,7 @@ from ..config import get_settings
 from ..deps import Pagination, get_db
 from ..errors import ApiError
 from ..ratelimit import check_rate_limit
-from ..schemas.api import ChatRequest, ChatResponse, Citation, TranslateRequest, TranslateResponse
+from ..schemas.api import ChatRequest, ChatResponse, Citation, SafetyContext, TranslateRequest, TranslateResponse
 from ..services.groq_client import LLMError, chat_json
 from ..services.prompts import ASSISTANT_SCHEMA, ASSISTANT_SYSTEM, LANG_NAMES, TRANSLATE_SCHEMA, TRANSLATE_SYSTEM
 from ..services.retrieval import build_context
@@ -23,6 +23,35 @@ NO_DATA = {
     "mr": "अद्याप तुमच्याकडे कोणतेही पुष्टी केलेले रेकॉर्ड नाहीत. एखादा अहवाल अपलोड करा आणि काढलेल्या मूल्यांची पुष्टी करा, मग मला विचारा.",
     "te": "మీకు ఇంకా నిర్ధారించిన రికార్డులు లేవు. ఒక నివేదికను అప్‌లోడ్ చేసి, వెలికితీసిన విలువలను నిర్ధారించండి, తర్వాత నన్ను అడగండి.",
 }
+
+
+def _mg(mg: float) -> str:
+    return f"{mg / 1000:g} g" if mg >= 1000 else f"{mg:g} mg"
+
+
+def safety_items(sc: SafetyContext | None) -> list[dict]:
+    """The app's safety-check result as citable context items [S1], [S2], ... (no document behind them)."""
+    if sc is None or (not sc.medicines and not sc.findings):
+        return []
+    items = []
+    if sc.medicines:
+        items.append({"kind": "safety_check", "document_id": None, "label": "Medicines checked",
+                      "detail": ", ".join(sc.medicines),
+                      "text": "Medicines in the user's current prescription safety check: " + ", ".join(sc.medicines)})
+    for f in sc.findings:
+        dose = (f"calculated up to {_mg(f.computed_daily_mg)} a day; limit used for this patient {_mg(f.limit_mg)} a day"
+                if f.computed_daily_mg is not None and f.limit_mg is not None else None)
+        text = f"Safety-check finding ({f.severity}): {f.title}"
+        if f.medicines:
+            text += "; medicines: " + ", ".join(f.medicines)
+        if dose:
+            text += "; " + dose
+        if f.explanation:
+            text += "; " + f.explanation
+        items.append({"kind": "safety_check", "document_id": None, "label": f.title, "detail": dose, "text": text})
+    for i, it in enumerate(items, 1):
+        it["ref"] = f"S{i}"
+    return items
 
 
 def _conversation(db, user_id: str, conv_id: str | None, first_message: str) -> dict:
@@ -46,13 +75,16 @@ def chat(body: ChatRequest, user: CurrentUser = Depends(get_current_user)):
                                            "role": "user", "content": body.message}).execute()
 
     context = build_context(db, user.id, body.message)
-    if not context:
+    safety = safety_items(body.safety_context)
+    if not context and not safety:
         answer, cites, insufficient = NO_DATA[body.language], [], True
     else:
         ctx = "\n".join(f"[{c['ref']}] {c['text']}" + (f" (source file: {c['file_name']})" if c.get("file_name") else "")
                         for c in context)
+        sctx = "\n".join(f"[{c['ref']}] {c['text']}" for c in safety)
         hist = "\n".join(f"{m['role'].upper()}: {m['content'][:500]}" for m in history)
-        prompt = (f"CONTEXT ITEMS (the user's own confirmed records):\n{ctx}\n\n"
+        prompt = ((f"CONTEXT ITEMS (the user's own confirmed records):\n{ctx}\n\n" if ctx else "")
+                  + (f"SAFETY-CHECK ITEMS (the prescription safety check the user is viewing; rule-based, not a diagnosis):\n{sctx}\n\n" if sctx else "")
                   + (f"RECENT CONVERSATION:\n{hist}\n\n" if hist else "")
                   + f"QUESTION:\n{body.message}")
         try:
@@ -60,9 +92,9 @@ def chat(body: ChatRequest, user: CurrentUser = Depends(get_current_user)):
                                "grounded_answer", ASSISTANT_SCHEMA, temperature=0.2, max_tokens=1500, max_wait=20.0)
         except LLMError as e:
             raise ApiError(429 if e.code == "ai_rate_limited" else 503, e.code, e.message)
-        by_ref = {c["ref"]: c for c in context}
+        by_ref = {c["ref"]: c for c in context + safety}
         refs = [r.strip("[] ") for r in raw.get("citations", [])]
-        refs += re.findall(r"\[(R\d+)\]", raw.get("answer", ""))
+        refs += re.findall(r"\[([RS]\d+)\]", raw.get("answer", ""))
         cites, seen = [], set()
         for r in refs:  # drop any citation that does not map to a real retrieved record
             if r in by_ref and r not in seen:
@@ -78,13 +110,13 @@ def chat(body: ChatRequest, user: CurrentUser = Depends(get_current_user)):
         "citations": cites, "insufficient_information": insufficient,
     }).execute().data[0]
     db.table("assistant_conversations").update({"title": conv["title"]}).eq("id", conv["id"]).execute()
-    audit(db, user.id, "assistant.asked", "conversation", conv["id"], {"context_items": len(context), "citations": len(cites)})
+    audit(db, user.id, "assistant.asked", "conversation", conv["id"], {"context_items": len(context), "safety_items": len(safety), "citations": len(cites)})
     return ChatResponse(conversation_id=conv["id"], message_id=msg["id"], answer=answer,
                         citations=[Citation(**c) for c in cites], insufficient_information=insufficient)
 
 
 _NUM = re.compile(r"\d+(?:[.,]\d+)?")
-_REF = re.compile(r"\[R\d+\]")
+_REF = re.compile(r"\[[RS]\d+\]")
 
 
 def same_facts(original: str, translated: str) -> bool:

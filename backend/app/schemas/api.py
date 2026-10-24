@@ -1,8 +1,8 @@
 """Typed request/response schemas."""
 from datetime import date
-from typing import Any, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from .extraction import ExtractionData
 
@@ -128,10 +128,33 @@ class SignupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+
+
+class SafetyContextFinding(BaseModel):
+    """One finding from a prescription safety check, as the app showed it. Rule output, never a diagnosis."""
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+    title: str = Field(min_length=1, max_length=160)
+    severity: Literal["critical", "high", "moderate", "low", "info"] = "info"
+    explanation: str | None = Field(default=None, max_length=600)
+    medicines: list[ShortText] = Field(default_factory=list, max_length=8)
+    computed_daily_mg: float | None = Field(default=None, ge=0, le=1_000_000)
+    limit_mg: float | None = Field(default=None, ge=0, le=1_000_000)
+
+
+class SafetyContext(BaseModel):
+    """The safety-check result the user is looking at, so the assistant can explain it. Size-capped."""
+    model_config = ConfigDict(extra="ignore")
+    medicines: list[ShortText] = Field(default_factory=list, max_length=30)
+    findings: list[SafetyContextFinding] = Field(default_factory=list, max_length=12)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
     conversation_id: str | None = None
     language: Lang = "en"
+    # Optional: older clients don't send it and behave exactly as before.
+    safety_context: SafetyContext | None = None
 
 
 class TranslateRequest(BaseModel):
